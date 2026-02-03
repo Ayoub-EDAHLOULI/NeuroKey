@@ -130,7 +130,7 @@ const SegmentControl = ({ values, selectedIndex, onChange, theme }: any) => {
       damping: 20,
       stiffness: 150,
     });
-  }, [selectedIndex]);
+  }, [selectedIndex, indicatorPosition]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     left: `${indicatorPosition.value}%`,
@@ -143,9 +143,9 @@ const SegmentControl = ({ values, selectedIndex, onChange, theme }: any) => {
         backgroundColor: theme.inputBg,
         borderRadius: 12,
         flexDirection: "row",
-        padding: 4, // <--- CHANGED: Reduced padding for tighter fit
+        padding: 4,
         marginBottom: 24,
-        position: "relative", // Ensure relative positioning context
+        position: "relative",
       }}
     >
       <Animated.View
