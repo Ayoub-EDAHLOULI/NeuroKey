@@ -1,51 +1,44 @@
-# Welcome to your Expo app 👋
+# NeuroKey 🧠🔐
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+**NeuroKey** is a next-generation, AI-enhanced password manager built with **React Native** and **Zero-Knowledge Architecture**.
 
-## Get started
+Unlike traditional managers, NeuroKey uses on-device AI to assist users with memory and security hygiene without ever sending sensitive data to the cloud.
 
-1. Install dependencies
+## 🚀 Key Features
 
-   ```bash
-   npm install
-   ```
+* **Zero-Knowledge Security:** Client-side AES-256-GCM encryption. The master password never leaves the device.
+* **AI-Powered Memory Hints:** Uses local NLP to generate personalized cognitive hints for passwords instead of revealing them.
+* **Smart Breach Detection:** On-device ML analysis to detect weak or common password patterns.
+* **BYOS (Bring Your Own Storage):** Syncs encrypted vaults via the user's personal Google Drive (No proprietary cloud servers).
 
-2. Start the app
+## 🛠 Tech Stack
 
-   ```bash
-   npx expo start
-   ```
+* **Mobile:** React Native (Expo)
+* **Core Logic:** JavaScript / C# (Planned Desktop)
+* **State Management:** Redux Toolkit
+* **Encryption:** Argon2 (KDF) & AES-GCM
+* **AI Engine:** TensorFlow Lite / ONNX Runtime (Mobile)
 
-In the output, you'll find options to open the app in a
+## 📦 Installation
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+1.  Clone the repo:
+    ```bash
+    git clone [https://github.com/yourusername/neurokey.git](https://github.com/yourusername/neurokey.git)
+    ```
+2.  Install dependencies:
+    ```bash
+    npm install
+    ```
+3.  Run on device:
+    ```bash
+    npx expo start
+    ```
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+## 🛡 Security Architecture
 
-## Get a fresh project
+* **Master Key:** Derived using Argon2id with a unique salt per user.
+* **Vault Data:** Encrypted with AES-256-GCM.
+* **Storage:** Local SecureStore (iOS/Android) & Encrypted JSON sync.
 
-When you're ready, run:
-
-```bash
-npm run reset-project
-```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
-# NeuroKey
+---
+*Built with ❤️ by [Your Name] for the AI Master's Portfolio.*
