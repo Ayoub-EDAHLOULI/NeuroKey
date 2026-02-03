@@ -1,3 +1,5 @@
+import "react-native-get-random-values";
+
 import {
   DarkTheme,
   DefaultTheme,
@@ -14,10 +16,7 @@ export default function RootLayout() {
   return (
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
       <Stack>
-        {/* 1. The Login Screen (No Header) */}
         <Stack.Screen name="index" options={{ headerShown: false }} />
-
-        {/* 2. The Main App (Tabs) - Hidden until login */}
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       </Stack>
       <StatusBar style="auto" />
