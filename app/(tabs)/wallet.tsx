@@ -47,12 +47,19 @@ export default function WalletScreen() {
         keyExtractor={(item) => item.id}
         contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
         renderItem={({ item }) => (
-          <CreditCard
-            holder={item.cardHolder || "Your Name"}
-            number={item.cardNumber || "0000 0000 0000 0000"}
-            expiry={item.expiry || "00/00"}
-            type={item.cardType || "visa"}
-          />
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() =>
+              router.push({ pathname: "/card-detail", params: { id: item.id } })
+            }
+          >
+            <CreditCard
+              holder={item.cardHolder || "Your Name"}
+              number={item.cardNumber || "0000 0000 0000 0000"}
+              expiry={item.expiry || "00/00"}
+              type={item.cardType || "visa"}
+            />
+          </TouchableOpacity>
         )}
         ListEmptyComponent={
           <View style={{ alignItems: "center", marginTop: 50 }}>
