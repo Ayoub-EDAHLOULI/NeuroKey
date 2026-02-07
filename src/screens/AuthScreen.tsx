@@ -152,15 +152,15 @@ const SegmentControl = ({ values, selectedIndex, onChange, theme }: any) => {
         style={[
           {
             position: "absolute",
-            top: 4, // <--- CHANGED: Matches padding
-            bottom: 4, // <--- CHANGED: Matches padding
+            top: 4,
+            bottom: 4,
             width: "50%",
             backgroundColor: theme.card,
             borderRadius: 10,
             shadowColor: "#000",
             shadowOpacity: 0.1,
             shadowRadius: 3,
-            marginLeft: 4, // <--- ADDED: Compensate for container padding on left slide
+            marginLeft: 4,
           },
           animatedStyle,
         ]}
@@ -417,7 +417,7 @@ export default function AuthScreen() {
             {mode === 1 && (
               <Animated.View
                 entering={FadeInUp.duration(300)}
-                exiting={FadeOutUp.duration(200)} // <--- CHANGED: Upward exit
+                exiting={FadeOutUp.duration(200)}
               >
                 <AuthInput
                   icon="person-outline"

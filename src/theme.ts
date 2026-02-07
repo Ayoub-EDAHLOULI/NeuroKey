@@ -9,6 +9,9 @@ export const Colors = {
     danger: "#FF3B30", // Red for delete
     border: "#C6C6C8",
     inputBg: "#E5E5EA",
+    strengthWeak: "#FF3B30", // Red
+    strengthMedium: "#FF9500", // Orange
+    strengthStrong: "#34C759", // Green
   },
   dark: {
     background: "#000000", // True black background
@@ -19,5 +22,8 @@ export const Colors = {
     danger: "#FF453A",
     border: "#38383A",
     inputBg: "#2C2C2E",
+    strengthWeak: "#FF453A", // Red
+    strengthMedium: "#FF9F0A", // Orange
+    strengthStrong: "#30D158", // Green
   },
 };
