@@ -12,9 +12,8 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Colors } from "../../src/theme";
-// 👇 Import the Hook
 import { useVault } from "../../src/context/VaultContext";
+import { Colors } from "../../src/theme";
 
 // --- COMPONENT: BRAND ICON ---
 const BrandIcon = ({
@@ -75,8 +74,9 @@ export default function VaultScreen() {
 
   const filteredData = items.filter(
     (item) =>
-      item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.email?.toLowerCase().includes(searchQuery.toLowerCase()),
+      item.type === "password" && // 👈 Only show passwords here
+      (item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.email?.toLowerCase().includes(searchQuery.toLowerCase())),
   );
 
   return (
@@ -102,6 +102,7 @@ export default function VaultScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* Search */}
       <View
         style={[styles.searchContainer, { backgroundColor: theme.inputBg }]}
       >
@@ -121,6 +122,7 @@ export default function VaultScreen() {
         />
       </View>
 
+      {/* List */}
       <FlatList
         data={filteredData}
         keyExtractor={(item) => item.id}
@@ -131,18 +133,15 @@ export default function VaultScreen() {
             style={[styles.itemContainer, { backgroundColor: theme.card }]}
             activeOpacity={0.7}
             onPress={() => {
-              // 👇 NAVIGATE WITH ID
-              router.push({
-                pathname: "/detail",
-                params: {
-                  id: item.id, // 👈 THIS WAS MISSING! CRITICAL!
-                  title: item.name,
-                  email: item.email,
-                  password: item.password,
-                  icon: item.icon,
-                  color: item.color,
-                },
-              });
+              // 👇 Logic: If we ever mix types, we can route dynamically here
+              if (item.type === "card") {
+                router.push({
+                  pathname: "/card-detail",
+                  params: { id: item.id },
+                });
+              } else {
+                router.push({ pathname: "/detail", params: { id: item.id } });
+              }
             }}
           >
             <BrandIcon
@@ -151,7 +150,6 @@ export default function VaultScreen() {
               color={item.color}
               theme={theme}
             />
-
             <View style={styles.textContainer}>
               <Text style={[styles.itemTitle, { color: theme.text }]}>
                 {item.name}
@@ -160,7 +158,6 @@ export default function VaultScreen() {
                 {item.email}
               </Text>
             </View>
-
             <TouchableOpacity style={{ padding: 8 }}>
               <Ionicons
                 name="chevron-forward"
@@ -178,7 +175,7 @@ export default function VaultScreen() {
               color={theme.subText}
             />
             <Text style={{ color: theme.subText, marginTop: 10 }}>
-              Your vault is empty.
+              No passwords found.
             </Text>
           </View>
         }
