@@ -88,9 +88,7 @@ export default function GeneratorScreen() {
 
   const copyToClipboard = async () => {
     await Clipboard.setStringAsync(password);
-    if (Platform.OS === "ios") {
-      Alert.alert("Copied", "Password copied to clipboard.");
-    }
+    Alert.alert("Copied", "Password copied to clipboard.");
   };
 
   return (
