@@ -28,7 +28,6 @@ const BrandIcon = ({
   color?: string;
   theme: any;
 }) => {
-  // If we have a specific logo (like 'logo-google'), render it
   if (icon && icon.startsWith("logo-")) {
     return (
       <View style={[styles.iconContainer, { backgroundColor: theme.card }]}>
@@ -37,7 +36,6 @@ const BrandIcon = ({
     );
   }
 
-  // If it's a generic icon (like 'card' or 'mail'), render it with color
   if (icon) {
     return (
       <View
@@ -51,7 +49,6 @@ const BrandIcon = ({
     );
   }
 
-  // Fallback: Colored Circle with Initial
   return (
     <View
       style={[
@@ -76,7 +73,6 @@ export default function VaultScreen() {
 
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Filter Logic
   const filteredData = passwords.filter(
     (item) =>
       item.serviceName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -94,8 +90,7 @@ export default function VaultScreen() {
         barStyle={scheme === "dark" ? "light-content" : "dark-content"}
       />
 
-      {/* 1. HEADER */}
-      <View style={[styles.header, { paddingTop: 20 }]}>
+      <View style={styles.header}>
         <Text style={[styles.headerTitle, { color: theme.text }]}>
           Passwords
         </Text>
@@ -107,7 +102,6 @@ export default function VaultScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* 2. SEARCH BAR */}
       <View
         style={[styles.searchContainer, { backgroundColor: theme.inputBg }]}
       >
@@ -123,11 +117,10 @@ export default function VaultScreen() {
           placeholderTextColor={theme.subText}
           value={searchQuery}
           onChangeText={setSearchQuery}
-          clearButtonMode="while-editing" // iOS only feature
+          clearButtonMode="while-editing"
         />
       </View>
 
-      {/* 3. PASSWORD LIST */}
       <FlatList
         data={filteredData}
         keyExtractor={(item) => item.id}
@@ -138,21 +131,20 @@ export default function VaultScreen() {
             style={[styles.itemContainer, { backgroundColor: theme.card }]}
             activeOpacity={0.7}
             onPress={() => {
-              // Navigate to Detail View
+              // 👇 NAVIGATE WITH ID
               router.push({
                 pathname: "/detail",
-                // Pass all params needed for display
                 params: {
+                  id: item.id, // 👈 THIS WAS MISSING! CRITICAL!
                   title: item.serviceName,
                   email: item.email,
-                  password: item.password, // Warning: In a real app, don't pass raw password via params, fetch by ID
+                  password: item.password,
                   icon: item.icon,
                   color: item.color,
                 },
               });
             }}
           >
-            {/* Left: Icon */}
             <BrandIcon
               serviceName={item.serviceName}
               icon={item.icon}
@@ -160,7 +152,6 @@ export default function VaultScreen() {
               theme={theme}
             />
 
-            {/* Middle: Text Info */}
             <View style={styles.textContainer}>
               <Text style={[styles.itemTitle, { color: theme.text }]}>
                 {item.serviceName}
@@ -170,17 +161,15 @@ export default function VaultScreen() {
               </Text>
             </View>
 
-            {/* Right: Action Icon */}
             <TouchableOpacity style={{ padding: 8 }}>
               <Ionicons
-                name="ellipsis-horizontal"
+                name="chevron-forward"
                 size={20}
                 color={theme.subText}
               />
             </TouchableOpacity>
           </TouchableOpacity>
         )}
-        // Empty State
         ListEmptyComponent={
           <View style={{ alignItems: "center", marginTop: 50 }}>
             <Ionicons
@@ -191,9 +180,6 @@ export default function VaultScreen() {
             <Text style={{ color: theme.subText, marginTop: 10 }}>
               Your vault is empty.
             </Text>
-            <Text style={{ color: theme.subText, fontSize: 12 }}>
-              Tap + to add a password.
-            </Text>
           </View>
         }
       />
@@ -202,9 +188,7 @@ export default function VaultScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -213,10 +197,7 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
     marginTop: 10,
   },
-  headerTitle: {
-    fontSize: 34,
-    fontWeight: "bold",
-  },
+  headerTitle: { fontSize: 34, fontWeight: "bold" },
   addButton: {
     width: 40,
     height: 40,
@@ -233,11 +214,7 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 10,
   },
-  searchInput: {
-    flex: 1,
-    fontSize: 17,
-    height: "100%",
-  },
+  searchInput: { flex: 1, fontSize: 17, height: "100%" },
   itemContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -253,20 +230,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginRight: 16,
   },
-  iconText: {
-    color: "#FFF",
-    fontSize: 20,
-    fontWeight: "bold",
-  },
-  textContainer: {
-    flex: 1,
-  },
-  itemTitle: {
-    fontSize: 17,
-    fontWeight: "600",
-    marginBottom: 2,
-  },
-  itemSubtitle: {
-    fontSize: 14,
-  },
+  iconText: { color: "#FFF", fontSize: 20, fontWeight: "bold" },
+  textContainer: { flex: 1 },
+  itemTitle: { fontSize: 17, fontWeight: "600", marginBottom: 2 },
+  itemSubtitle: { fontSize: 14 },
 });

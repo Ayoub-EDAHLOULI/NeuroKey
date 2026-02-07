@@ -1,7 +1,7 @@
-import React, { createContext, useContext, useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage"; // 👈 The key to stability
+import React, { createContext, useContext, useEffect, useState } from "react";
 import { v4 as uuidv4 } from "uuid";
 
-// 1. Define what a Password Item looks like
 export interface PasswordItem {
   id: string;
   serviceName: string;
@@ -14,52 +14,76 @@ export interface PasswordItem {
   created_at: number;
 }
 
-// 2. Define the actions we can perform
 interface VaultContextType {
   passwords: PasswordItem[];
+  isLoading: boolean; // 👈 New: Helps us know when data is ready
   isAuthenticated: boolean;
-  unlockVault: (key: string) => void; // We will use this later for encryption
+  unlockVault: (key: string) => void;
   addPassword: (item: Omit<PasswordItem, "id" | "created_at">) => void;
   deletePassword: (id: string) => void;
   updatePassword: (id: string, updates: Partial<PasswordItem>) => void;
 }
 
-// 3. Create the Context
 const VaultContext = createContext<VaultContextType>({} as VaultContextType);
 
-// 4. The Provider Component
+const STORAGE_KEY = "@neurokey_vault_v1";
+
 export const VaultProvider = ({ children }: { children: React.ReactNode }) => {
   const [passwords, setPasswords] = useState<PasswordItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true); // Start loading
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  // SIMULATE: Unlock the vault (We will connect real decryption later)
-  const unlockVault = (key: string) => {
-    // TODO: Store and use the key for decryption
-    setIsAuthenticated(true);
-    // TODO: Load encrypted file from disk here
-  };
-
-  // ACTION: Add Password
-  const addPassword = (newItem: Omit<PasswordItem, "id" | "created_at">) => {
-    const entry: PasswordItem = {
-      id: uuidv4(),
-      created_at: Date.now(),
-      ...newItem,
+  // 1. LOAD DATA ON STARTUP
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const jsonValue = await AsyncStorage.getItem(STORAGE_KEY);
+        if (jsonValue != null) {
+          const loadedData = JSON.parse(jsonValue);
+          setPasswords(loadedData);
+          console.log("✅ Vault loaded:", loadedData.length, "items");
+        } else {
+          console.log("ℹ️ Starting fresh vault (no data found)");
+        }
+      } catch (e) {
+        console.error("❌ Failed to load vault:", e);
+      } finally {
+        setIsLoading(false); // Stop loading whether it worked or failed
+      }
     };
-    // Add to top of list
-    setPasswords((prev) => [entry, ...prev]);
-    // TODO: Save updated list to disk here
+    loadData();
+  }, []);
+
+  // 2. HELPER TO SAVE DATA
+  const saveVault = async (newData: PasswordItem[]) => {
+    try {
+      setPasswords(newData); // Update UI immediately (Optimistic UI)
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newData)); // Save to Disk
+      console.log("💾 Saved to disk.");
+    } catch (e) {
+      console.error("❌ Failed to save vault:", e);
+    }
   };
 
-  // ACTION: Delete Password
+  const unlockVault = (key: string) => {
+    setIsAuthenticated(true);
+  };
+
+  // CRUD OPERATIONS
+  const addPassword = (newItem: Omit<PasswordItem, "id" | "created_at">) => {
+    const entry = { id: uuidv4(), created_at: Date.now(), ...newItem };
+    saveVault([entry, ...passwords]);
+  };
+
   const deletePassword = (id: string) => {
-    setPasswords((prev) => prev.filter((item) => item.id !== id));
+    saveVault(passwords.filter((item) => item.id !== id));
   };
 
-  // ACTION: Update Password
   const updatePassword = (id: string, updates: Partial<PasswordItem>) => {
-    setPasswords((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, ...updates } : item)),
+    saveVault(
+      passwords.map((item) =>
+        item.id === id ? { ...item, ...updates } : item,
+      ),
     );
   };
 
@@ -67,6 +91,7 @@ export const VaultProvider = ({ children }: { children: React.ReactNode }) => {
     <VaultContext.Provider
       value={{
         passwords,
+        isLoading,
         isAuthenticated,
         unlockVault,
         addPassword,
@@ -79,5 +104,4 @@ export const VaultProvider = ({ children }: { children: React.ReactNode }) => {
   );
 };
 
-// 5. A simple Hook to use this data in any screen
 export const useVault = () => useContext(VaultContext);

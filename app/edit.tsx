@@ -17,7 +17,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useVault } from "../src/context/VaultContext";
 import { Colors } from "../src/theme";
 
-// Use the same icons list
+// Use same icon list config as Add Screen
 const BRAND_ICONS = [
   { id: "amazon", name: "Amazon", icon: "logo-amazon", color: "#FF9900" },
   { id: "google", name: "Google", icon: "logo-google", color: "#4285F4" },
@@ -44,25 +44,26 @@ const BRAND_ICONS = [
 
 export default function EditPasswordScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams(); // Get data passed from detail
+  const params = useLocalSearchParams();
   const scheme = useColorScheme();
   const theme = Colors[scheme === "dark" ? "dark" : "light"];
   const insets = useSafeAreaInsets();
 
   const { updatePassword } = useVault();
 
-  // Initialize State with the passed params
-  const [serviceName, setServiceName] = useState(params.serviceName as string);
-  const [email, setEmail] = useState(params.email as string);
-  const [password, setPassword] = useState(params.password as string);
+  // 1. LOAD INITIAL DATA from params
+  const [serviceName, setServiceName] = useState(
+    (params.serviceName as string) || "",
+  );
+  const [email, setEmail] = useState((params.email as string) || "");
+  const [password, setPassword] = useState((params.password as string) || "");
   const [url, setUrl] = useState((params.url as string) || "");
   const [notes, setNotes] = useState((params.notes as string) || "");
 
-  // Find the initial icon object based on the icon name passed
+  // Find initial icon
   const initialIcon =
-    BRAND_ICONS.find((b) => b.icon === params.icon) || BRAND_ICONS[10]; // Default to 'Other'
+    BRAND_ICONS.find((b) => b.icon === params.icon) || BRAND_ICONS[10];
   const [selectedIcon, setSelectedIcon] = useState(initialIcon);
-
   const [showPassword, setShowPassword] = useState(false);
 
   const handleUpdate = () => {
@@ -71,7 +72,7 @@ export default function EditPasswordScreen() {
       return;
     }
 
-    // 👇 Update the item in Context
+    // 2. CALL UPDATE
     updatePassword(params.id as string, {
       serviceName,
       email,
@@ -82,9 +83,8 @@ export default function EditPasswordScreen() {
       color: selectedIcon.color,
     });
 
-    // Go back 2 steps (Close Edit -> Close Detail -> Back to List)
-    // Or just go back 1 step to Detail view to see updates
-    router.dismissAll(); // This goes all the way back to the list
+    // 3. GO BACK (Closes the modal)
+    router.back();
   };
 
   return (
@@ -92,7 +92,7 @@ export default function EditPasswordScreen() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={[styles.container, { backgroundColor: theme.background }]}
     >
-      <View style={[styles.header, { paddingTop: insets.top || 20 }]}>
+      <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
         <TouchableOpacity onPress={() => router.back()}>
           <Text style={{ color: theme.primary, fontSize: 17 }}>Cancel</Text>
         </TouchableOpacity>
@@ -144,12 +144,17 @@ export default function EditPasswordScreen() {
                     }
                   />
                 </View>
+                <Text
+                  style={{ marginTop: 8, fontSize: 12, color: theme.subText }}
+                >
+                  {brand.name}
+                </Text>
               </TouchableOpacity>
             ))}
           </ScrollView>
         </View>
 
-        {/* FORM */}
+        {/* FORM FIELDS */}
         <View style={styles.formGroup}>
           <View
             style={[

@@ -3,6 +3,7 @@ import * as Clipboard from "expo-clipboard";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   Platform,
   ScrollView,
@@ -13,81 +14,101 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useVault } from "../src/context/VaultContext"; // 👇 Import Context for Delete
+import { useVault } from "../src/context/VaultContext";
 import { Colors } from "../src/theme";
 
 export default function DetailScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams(); // Get data passed from index
+  const params = useLocalSearchParams();
   const scheme = useColorScheme();
   const theme = Colors[scheme === "dark" ? "dark" : "light"];
   const insets = useSafeAreaInsets();
 
-  const { deletePassword } = useVault();
+  // 👇 Get isLoading from context
+  const { deletePassword, passwords, isLoading } = useVault();
 
-  // State
+  // Find the item
+  const item = passwords.find((p) => p.id === params.id);
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
 
-  // Helper: Copy to Clipboard
+  // CASE 1: Still loading data from disk
+  if (isLoading) {
+    return (
+      <View
+        style={[
+          styles.container,
+          {
+            backgroundColor: theme.background,
+            justifyContent: "center",
+            alignItems: "center",
+          },
+        ]}
+      >
+        <ActivityIndicator size="large" color={theme.primary} />
+      </View>
+    );
+  }
+
+  // CASE 2: Data loaded, but item not found (Deleted)
+  if (!item) {
+    return (
+      <View
+        style={[
+          styles.container,
+          {
+            backgroundColor: theme.background,
+            justifyContent: "center",
+            alignItems: "center",
+            padding: 20,
+          },
+        ]}
+      >
+        <Ionicons name="alert-circle-outline" size={50} color={theme.subText} />
+        <Text style={{ color: theme.subText, marginTop: 10, fontSize: 16 }}>
+          Password not found.
+        </Text>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={{ marginTop: 20, padding: 10 }}
+        >
+          <Text style={{ color: theme.primary, fontSize: 18 }}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  // CASE 3: Item found - Render normal UI
   const copyToClipboard = async (text: string, label: string) => {
     await Clipboard.setStringAsync(text);
-    // On Android, a toast usually appears automatically. On iOS, we might want a subtle alert.
-    if (Platform.OS === "ios") {
-      Alert.alert("Copied", `${label} copied to clipboard.`);
-    }
+    if (Platform.OS === "ios") Alert.alert("Copied", `${label} copied.`);
   };
 
-  // Helper: Delete Action
   const handleDelete = () => {
-    Alert.alert("Delete Password", "Are you sure? This cannot be undone.", [
+    Alert.alert("Delete Password", "Are you sure?", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Delete",
         style: "destructive",
         onPress: () => {
-          deletePassword(params.id as string); // Delete from Context
-          router.back(); // Go back to list
+          deletePassword(item.id);
+          router.back();
         },
       },
     ]);
   };
 
-  // Helper: Render Icon (Same logic as Index)
   const renderIcon = () => {
-    const { icon, color, title } = params;
-    const iconName = icon as string;
-    const iconColor = color as string;
-    const serviceName = title as string;
-
-    if (iconName && iconName.startsWith("logo-")) {
+    const { icon, color, serviceName } = item;
+    if (icon && icon.startsWith("logo-")) {
       return (
         <View style={[styles.iconCircle, { backgroundColor: theme.card }]}>
-          <Ionicons
-            name={iconName as any}
-            size={40}
-            color={iconColor || theme.text}
-          />
-        </View>
-      );
-    }
-    if (iconName) {
-      return (
-        <View
-          style={[
-            styles.iconCircle,
-            { backgroundColor: iconColor || theme.primary },
-          ]}
-        >
-          <Ionicons name={iconName as any} size={32} color="#FFF" />
+          <Ionicons name={icon as any} size={40} color={color || theme.text} />
         </View>
       );
     }
     return (
       <View
-        style={[
-          styles.iconCircle,
-          { backgroundColor: iconColor || theme.primary },
-        ]}
+        style={[styles.iconCircle, { backgroundColor: color || theme.primary }]}
       >
         <Text style={{ fontSize: 30, color: "#FFF", fontWeight: "bold" }}>
           {serviceName?.charAt(0).toUpperCase()}
@@ -98,15 +119,14 @@ export default function DetailScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      {/* 1. HEADER (Custom) */}
       <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.roundBtn}>
           <Ionicons name="close" size={24} color={theme.text} />
         </TouchableOpacity>
-
-        {/* Edit Button (Placeholder) */}
         <TouchableOpacity
-          onPress={() => Alert.alert("Coming Soon", "Edit functionality")}
+          onPress={() =>
+            router.push({ pathname: "/edit", params: { ...item } })
+          }
         >
           <Text
             style={{ color: theme.primary, fontSize: 17, fontWeight: "600" }}
@@ -117,44 +137,36 @@ export default function DetailScreen() {
       </View>
 
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
-        {/* 2. LARGE ICON & TITLE */}
         <View style={{ alignItems: "center", marginVertical: 20 }}>
           {renderIcon()}
           <Text style={[styles.title, { color: theme.text }]}>
-            {params.title}
+            {item.serviceName}
           </Text>
           <Text style={{ color: theme.subText, fontSize: 16 }}>
-            {params.email}
+            {item.email}
           </Text>
         </View>
 
-        {/* 3. CREDENTIALS GROUP */}
         <View style={styles.sectionTitleContainer}>
           <Text style={[styles.sectionTitle, { color: theme.subText }]}>
             CREDENTIALS
           </Text>
         </View>
-
         <View style={[styles.groupContainer, { backgroundColor: theme.card }]}>
-          {/* Username Row */}
           <View style={[styles.row, { borderBottomColor: theme.border }]}>
             <Text style={[styles.label, { color: theme.text }]}>Username</Text>
             <Text
               style={[styles.value, { color: theme.subText }]}
               numberOfLines={1}
             >
-              {params.email}
+              {item.email}
             </Text>
             <TouchableOpacity
-              onPress={() =>
-                copyToClipboard(params.email as string, "Username")
-              }
+              onPress={() => copyToClipboard(item.email, "Username")}
             >
               <Ionicons name="copy-outline" size={20} color={theme.primary} />
             </TouchableOpacity>
           </View>
-
-          {/* Password Row */}
           <View style={[styles.row, { borderBottomColor: "transparent" }]}>
             <Text style={[styles.label, { color: theme.text }]}>Password</Text>
             <View style={{ flex: 1, marginRight: 10 }}>
@@ -167,9 +179,7 @@ export default function DetailScreen() {
                   },
                 ]}
               >
-                {isPasswordVisible
-                  ? (params.password as string)
-                  : "••••••••••••••••"}
+                {isPasswordVisible ? item.password : "••••••••••••••••"}
               </Text>
             </View>
             <View style={{ flexDirection: "row", gap: 15 }}>
@@ -183,9 +193,7 @@ export default function DetailScreen() {
                 />
               </TouchableOpacity>
               <TouchableOpacity
-                onPress={() =>
-                  copyToClipboard(params.password as string, "Password")
-                }
+                onPress={() => copyToClipboard(item.password, "Password")}
               >
                 <Ionicons name="copy-outline" size={20} color={theme.primary} />
               </TouchableOpacity>
@@ -193,35 +201,21 @@ export default function DetailScreen() {
           </View>
         </View>
 
-        {/* 4. WEBSITE / NOTES */}
         <View style={styles.sectionTitleContainer}>
           <Text style={[styles.sectionTitle, { color: theme.subText }]}>
             DETAILS
           </Text>
         </View>
-
         <View style={[styles.groupContainer, { backgroundColor: theme.card }]}>
-          {/* URL */}
           <View style={[styles.row, { borderBottomColor: theme.border }]}>
             <Text style={[styles.label, { color: theme.text }]}>Website</Text>
             <Text
               style={[styles.value, { color: theme.subText }]}
               numberOfLines={1}
             >
-              {params.url || "None"}
+              {item.url || "None"}
             </Text>
-            {params.url ? (
-              <TouchableOpacity
-                onPress={() =>
-                  Alert.alert("Open Link", `Opening ${params.url}`)
-                }
-              >
-                <Ionicons name="open-outline" size={20} color={theme.primary} />
-              </TouchableOpacity>
-            ) : null}
           </View>
-
-          {/* Notes */}
           <View
             style={[
               styles.row,
@@ -238,12 +232,11 @@ export default function DetailScreen() {
             <Text
               style={[styles.value, { color: theme.subText, lineHeight: 20 }]}
             >
-              {params.notes || "No notes added."}
+              {item.notes || "No notes added."}
             </Text>
           </View>
         </View>
 
-        {/* 5. DELETE BUTTON */}
         <TouchableOpacity
           style={[styles.deleteButton, { backgroundColor: theme.card }]}
           onPress={handleDelete}
@@ -273,12 +266,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     backgroundColor: "rgba(128,128,128, 0.15)",
   },
-  title: {
-    fontSize: 28,
-    fontWeight: "bold",
-    marginTop: 10,
-    marginBottom: 5,
-  },
+  title: { fontSize: 28, fontWeight: "bold", marginTop: 10, marginBottom: 5 },
   iconCircle: {
     width: 80,
     height: 80,
@@ -296,10 +284,7 @@ const styles = StyleSheet.create({
     marginTop: 24,
     marginBottom: 8,
   },
-  sectionTitle: {
-    fontSize: 13,
-    fontWeight: "500",
-  },
+  sectionTitle: { fontSize: 13, fontWeight: "500" },
   groupContainer: {
     marginHorizontal: 16,
     borderRadius: 12,
@@ -313,16 +298,8 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  label: {
-    width: 90,
-    fontSize: 16,
-    fontWeight: "500",
-  },
-  value: {
-    flex: 1,
-    fontSize: 16,
-    marginRight: 10,
-  },
+  label: { width: 90, fontSize: 16, fontWeight: "500" },
+  value: { flex: 1, fontSize: 16, marginRight: 10 },
   deleteButton: {
     marginTop: 30,
     marginHorizontal: 16,
