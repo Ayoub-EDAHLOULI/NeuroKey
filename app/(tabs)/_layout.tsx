@@ -16,7 +16,7 @@ export default function TabLayout() {
         tabBarActiveTintColor: theme.primary,
         tabBarInactiveTintColor: theme.subText,
         tabBarStyle: {
-          backgroundColor: theme.card,
+          backgroundColor: "transparent",
           borderTopColor: theme.border,
           borderTopWidth: 1,
           height: 60 + insets.bottom,
@@ -41,7 +41,6 @@ export default function TabLayout() {
         }}
       />
 
-      {/* 👇 CHANGED: From 'notes' to 'wallet' */}
       <Tabs.Screen
         name="wallet"
         options={{
