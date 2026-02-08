@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as LocalAuthentication from "expo-local-authentication"; // 👇 1. Import this
 import * as Updates from "expo-updates";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Linking,
   ScrollView,
@@ -13,20 +14,20 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Colors } from "../../src/theme";
-// 👇 Import your Custom Alert
 import CustomAlert from "../../src/components/CustomAlert";
+import { Colors } from "../../src/theme";
 
 export default function SettingsScreen() {
   const scheme = useColorScheme();
   const theme = Colors[scheme === "dark" ? "dark" : "light"];
   const insets = useSafeAreaInsets();
 
-  // Fake state for UI demo
-  const [faceIdEnabled, setFaceIdEnabled] = React.useState(true);
-  const [autoLock, setAutoLock] = React.useState(true);
+  // --- STATE ---
+  const [faceIdEnabled, setFaceIdEnabled] = useState(false);
+  const [isBiometricSupported, setIsBiometricSupported] = useState(false);
+  const [autoLock, setAutoLock] = useState(true);
 
-  // 👇 NEW: State for Custom Alert
+  // Alert State
   const [alertConfig, setAlertConfig] = useState<{
     visible: boolean;
     title: string;
@@ -54,9 +55,45 @@ export default function SettingsScreen() {
     setAlertConfig((prev) => ({ ...prev, visible: false }));
   };
 
+  // --- 👇 2. CHECK BIOMETRIC SUPPORT ON LOAD ---
+  useEffect(() => {
+    (async () => {
+      // Check if hardware supports it
+      const compatible = await LocalAuthentication.hasHardwareAsync();
+      setIsBiometricSupported(compatible);
+
+      // Load saved preference
+      const savedBiometric = await AsyncStorage.getItem("use_biometric");
+      setFaceIdEnabled(savedBiometric === "true");
+    })();
+  }, []);
+
+  // --- 👇 3. HANDLE TOGGLE LOGIC ---
+  const handleBiometricToggle = async (value: boolean) => {
+    if (value) {
+      // Turning ON: Verify identity first
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: "Confirm Identity to Enable",
+        fallbackLabel: "Use Password",
+      });
+
+      if (result.success) {
+        setFaceIdEnabled(true);
+        await AsyncStorage.setItem("use_biometric", "true");
+        showAlert("Secured", "Face ID / Touch ID enabled.", "success");
+      } else {
+        // If they failed the scan or cancelled, don't enable it
+        setFaceIdEnabled(false);
+      }
+    } else {
+      // Turning OFF
+      setFaceIdEnabled(false);
+      await AsyncStorage.setItem("use_biometric", "false");
+    }
+  };
+
   // --- ACTIONS ---
 
-  // 1. CLEAR VAULT (Danger Zone)
   const handleClearData = async () => {
     showAlert(
       "Wipe All Data?",
@@ -68,10 +105,9 @@ export default function SettingsScreen() {
           text: "Delete Everything",
           style: "destructive",
           onPress: async () => {
-            closeAlert(); // Close the warning modal
+            closeAlert();
             try {
               await AsyncStorage.clear();
-              // Show success modal after a small delay
               setTimeout(() => {
                 showAlert(
                   "Success",
@@ -91,7 +127,6 @@ export default function SettingsScreen() {
     );
   };
 
-  // 2. OPEN LINK
   const openLink = (url: string) => {
     Linking.openURL(url).catch((err) =>
       console.error("Couldn't load page", err),
@@ -108,11 +143,15 @@ export default function SettingsScreen() {
     onToggle,
     isDestructive = false,
     onPress,
+    disabled = false,
   }: any) => (
     <TouchableOpacity
-      style={[styles.row, { borderBottomColor: theme.border }]}
+      style={[
+        styles.row,
+        { borderBottomColor: theme.border, opacity: disabled ? 0.5 : 1 },
+      ]}
       onPress={onPress}
-      disabled={isSwitch}
+      disabled={isSwitch || disabled}
     >
       <View style={{ flexDirection: "row", alignItems: "center" }}>
         <View style={[styles.iconBox, { backgroundColor: color }]}>
@@ -133,6 +172,7 @@ export default function SettingsScreen() {
           value={value}
           onValueChange={onToggle}
           trackColor={{ false: theme.inputBg, true: theme.primary }}
+          disabled={disabled}
         />
       ) : (
         <Ionicons name="chevron-forward" size={20} color={theme.subText} />
@@ -160,14 +200,17 @@ export default function SettingsScreen() {
           SECURITY
         </Text>
         <View style={[styles.group, { backgroundColor: theme.card }]}>
+          {/* 👇 REAL FACE ID TOGGLE */}
           <SettingRow
             icon="scan-outline"
             color="#34C759"
             label="Face ID / Touch ID"
             isSwitch
             value={faceIdEnabled}
-            onToggle={setFaceIdEnabled}
+            onToggle={handleBiometricToggle}
+            disabled={!isBiometricSupported} // Disable if phone doesn't have it
           />
+
           <SettingRow
             icon="lock-closed-outline"
             color="#FF9500"
@@ -262,7 +305,6 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   header: { paddingHorizontal: 20, paddingBottom: 10, marginTop: 10 },
   headerTitle: { fontSize: 34, fontWeight: "bold" },
-
   sectionHeader: {
     marginLeft: 20,
     marginTop: 24,

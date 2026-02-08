@@ -1,8 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage"; // Required for reset
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as LocalAuthentication from "expo-local-authentication";
 import { useRouter } from "expo-router";
-import * as SecureStore from "expo-secure-store"; // Required for reset
-import React, { useEffect, useState } from "react";
+import * as SecureStore from "expo-secure-store";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -41,7 +42,7 @@ import {
 } from "../core/security/encryption";
 import { Colors } from "../theme";
 
-// --- COMPONENT 1: NEUROKEY LOGO (SVG) ---
+// --- COMPONENT 1: NEUROKEY LOGO ---
 const NeuroKeyLogo = () => (
   <View style={{ alignItems: "center", marginBottom: 20 }}>
     <Svg
@@ -123,16 +124,15 @@ const NeuroKeyLogo = () => (
   </View>
 );
 
+// --- COMPONENT 2: SEGMENT CONTROL ---
 const SegmentControl = ({ values, selectedIndex, onChange, theme }: any) => {
   const indicatorPosition = useSharedValue(0);
-
   useEffect(() => {
     indicatorPosition.value = withSpring(selectedIndex * 50, {
       damping: 20,
       stiffness: 150,
     });
   }, [selectedIndex, indicatorPosition]);
-
   const animatedStyle = useAnimatedStyle(() => ({
     left: `${indicatorPosition.value}%`,
   }));
@@ -192,6 +192,7 @@ const SegmentControl = ({ values, selectedIndex, onChange, theme }: any) => {
   );
 };
 
+// --- COMPONENT 3: AUTH INPUT ---
 const AuthInput = ({
   icon,
   placeholder,
@@ -273,50 +274,102 @@ export default function AuthScreen() {
   const [errors, setErrors] = useState<any>({});
   const [isLoading, setIsLoading] = useState(true);
 
-  // 👇 NEW: State to control the Custom Alert
+  // Biometric State
+  const [isBiometricAvailable, setIsBiometricAvailable] = useState(false);
+
+  // Alert State
   const [alertConfig, setAlertConfig] = useState<{
     visible: boolean;
     title: string;
     message: string;
     type: "success" | "error" | "warning" | "info";
     buttons?: any[];
-  }>({
-    visible: false,
-    title: "",
-    message: "",
-    type: "info",
-    buttons: [],
-  });
+  }>({ visible: false, title: "", message: "", type: "info", buttons: [] });
 
-  // Helper to trigger alert
-  const showAlert = (
-    title: string,
-    message: string,
-    type: any = "info",
-    buttons: any[] = [],
-  ) => {
-    setAlertConfig({ visible: true, title, message, type, buttons });
-  };
-
-  const closeAlert = () => {
+  const showAlert = useCallback(
+    (
+      title: string,
+      message: string,
+      type: any = "info",
+      buttons: any[] = [],
+    ) => {
+      setAlertConfig({ visible: true, title, message, type, buttons });
+    },
+    [],
+  );
+  const closeAlert = () =>
     setAlertConfig((prev) => ({ ...prev, visible: false }));
-  };
 
-  useEffect(() => {
-    checkUserStatus();
-  }, []);
+  // --- BIOMETRIC AUTH HANDLER ---
+  const handleBiometricAuth = useCallback(async () => {
+    const hasHardware = await LocalAuthentication.hasHardwareAsync();
+    if (!hasHardware) return;
 
-  const checkUserStatus = async () => {
-    const savedEmail = await getSecureItem("user_email");
-    if (savedEmail) {
-      setFormData((prev) => ({ ...prev, email: savedEmail }));
-      setMode(0);
-    } else {
-      setMode(1);
+    const result = await LocalAuthentication.authenticateAsync({
+      promptMessage: "Unlock NeuroKey",
+      fallbackLabel: "Enter Password",
+    });
+
+    if (result.success) {
+      const savedPassword = await SecureStore.getItemAsync("auth_password");
+
+      if (savedPassword) {
+        setIsLoading(true);
+        const salt = await getSecureItem("vault_salt");
+        const token = await getSecureItem("vault_validation");
+
+        const key = deriveKey(savedPassword, salt!);
+        const decrypted = decryptData(token!, key);
+
+        if (decrypted === "VALID_TOKEN") {
+          router.replace("/(tabs)");
+        } else {
+          setIsLoading(false);
+          showAlert(
+            "Error",
+            "Biometric data stale. Please login with password.",
+            "error",
+          );
+        }
+      } else {
+        showAlert(
+          "Setup Required",
+          "Please log in with your password once to enable Face ID.",
+          "info",
+        );
+      }
     }
-    setIsLoading(false);
-  };
+  }, [router, showAlert]);
 
+  // --- 1. CHECK USER STATUS ON LOAD ---
+  useEffect(() => {
+    const checkUserStatus = async () => {
+      try {
+        const savedEmail = await getSecureItem("user_email");
+        const biometricEnabled = await AsyncStorage.getItem("use_biometric");
+
+        if (savedEmail) {
+          setFormData((prev) => ({ ...prev, email: savedEmail }));
+          setMode(0);
+
+          if (biometricEnabled === "true") {
+            setIsBiometricAvailable(true);
+            handleBiometricAuth(); // 👈 Now safe to call
+          }
+        } else {
+          setMode(1);
+        }
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkUserStatus();
+  }, [handleBiometricAuth]);
+
+  // --- 3. VALIDATION ---
   const validate = () => {
     let valid = true;
     let newErrors: any = {};
@@ -342,6 +395,7 @@ export default function AuthScreen() {
     return valid;
   };
 
+  // --- 4. LOGIN / REGISTER HANDLER ---
   const handleSubmit = async () => {
     if (!validate()) return;
     setIsLoading(true);
@@ -357,7 +411,9 @@ export default function AuthScreen() {
           await saveSecureItem("vault_salt", salt);
           await saveSecureItem("vault_validation", token);
 
-          // 👇 Custom Success Alert
+          // 👇 Save Password for future Biometric use
+          await SecureStore.setItemAsync("auth_password", formData.password);
+
           showAlert(
             "Welcome!",
             "Your account has been created successfully.",
@@ -381,9 +437,11 @@ export default function AuthScreen() {
         const decrypted = decryptData(token, key);
 
         if (decrypted === "VALID_TOKEN") {
+          // 👇 Save Password for future Biometric use (Update if changed)
+          await SecureStore.setItemAsync("auth_password", formData.password);
+
           router.replace("/(tabs)");
         } else {
-          // 👇 Custom Error Alert
           showAlert(
             "Access Denied",
             "Incorrect password. Please try again.",
@@ -402,7 +460,6 @@ export default function AuthScreen() {
     }
   };
 
-  // 👇 UPDATED: Handle Forgot Password with Custom Alert
   const handleForgotPassword = () => {
     showAlert(
       "Reset Vault?",
@@ -414,14 +471,14 @@ export default function AuthScreen() {
           text: "Wipe & Reset",
           style: "destructive",
           onPress: async () => {
-            closeAlert(); // Close warning first
+            closeAlert();
             try {
               setIsLoading(true);
               await SecureStore.deleteItemAsync("user_email");
               await SecureStore.deleteItemAsync("vault_salt");
               await SecureStore.deleteItemAsync("vault_validation");
+              await SecureStore.deleteItemAsync("auth_password"); // Clear biometric pass
               await AsyncStorage.clear();
-
               setMode(1);
               setFormData({
                 name: "",
@@ -429,15 +486,15 @@ export default function AuthScreen() {
                 password: "",
                 confirmPassword: "",
               });
-
-              // Show success after wipe
-              setTimeout(() => {
-                showAlert(
-                  "Reset Complete",
-                  "Your vault has been wiped. You can now create a new account.",
-                  "success",
-                );
-              }, 500);
+              setTimeout(
+                () =>
+                  showAlert(
+                    "Reset Complete",
+                    "Your vault has been wiped.",
+                    "success",
+                  ),
+                500,
+              );
             } catch {
               showAlert("Error", "Failed to reset data.", "error");
             } finally {
@@ -475,12 +532,10 @@ export default function AuthScreen() {
           marginTop: 40,
         }}
       >
-        {/* LOGO ANIMATION */}
         <Animated.View entering={FadeInDown.delay(200).duration(800)}>
           <NeuroKeyLogo />
         </Animated.View>
 
-        {/* CARD CONTAINER */}
         <Animated.View
           entering={FadeInUp.delay(400).duration(800)}
           style={{
@@ -518,7 +573,6 @@ export default function AuthScreen() {
                 />
               </Animated.View>
             )}
-
             <AuthInput
               icon="mail-outline"
               placeholder="Email Address"
@@ -538,7 +592,6 @@ export default function AuthScreen() {
               theme={theme}
               error={errors.password}
             />
-
             {mode === 1 && (
               <Animated.View
                 entering={FadeInUp.duration(300)}
@@ -578,6 +631,21 @@ export default function AuthScreen() {
             </Text>
           </TouchableOpacity>
 
+          {/* 👇 BIOMETRIC BUTTON (Only show if available & in Login Mode) */}
+          {mode === 0 && isBiometricAvailable && (
+            <TouchableOpacity
+              onPress={handleBiometricAuth}
+              style={{ alignItems: "center", marginTop: 20 }}
+            >
+              <Ionicons name="finger-print" size={40} color={theme.primary} />
+              <Text
+                style={{ color: theme.primary, fontSize: 12, marginTop: 4 }}
+              >
+                Tap to Unlock
+              </Text>
+            </TouchableOpacity>
+          )}
+
           <View style={{ alignItems: "center", marginTop: 20, gap: 15 }}>
             {mode === 0 && (
               <TouchableOpacity onPress={handleForgotPassword}>
@@ -602,7 +670,6 @@ export default function AuthScreen() {
         </Text>
       </View>
 
-      {/* 👇 RENDER THE CUSTOM ALERT */}
       <CustomAlert
         visible={alertConfig.visible}
         title={alertConfig.title}
