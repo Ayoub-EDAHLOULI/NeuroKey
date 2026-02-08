@@ -52,9 +52,7 @@ export default function EditPasswordScreen() {
   const { updateVaultItem } = useVault();
 
   // 1. LOAD INITIAL DATA from params
-  const [serviceName, setServiceName] = useState(
-    (params.serviceName as string) || "",
-  );
+  const [serviceName, setServiceName] = useState((params.name as string) || "");
   const [email, setEmail] = useState((params.email as string) || "");
   const [password, setPassword] = useState((params.password as string) || "");
   const [url, setUrl] = useState((params.url as string) || "");

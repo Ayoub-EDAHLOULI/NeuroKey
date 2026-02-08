@@ -35,10 +35,10 @@ export default function WalletScreen() {
       <View style={styles.header}>
         <Text style={[styles.headerTitle, { color: theme.text }]}>Wallet</Text>
         <TouchableOpacity
-          style={[styles.addButton, { backgroundColor: theme.inputBg }]}
+          style={[styles.addButton]}
           onPress={() => router.push("/add-card")}
         >
-          <Ionicons name="add" size={24} color={theme.primary} />
+          <Ionicons name="add" size={24} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
 
@@ -89,6 +89,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
+    backgroundColor: "#007AFF",
     justifyContent: "center",
     alignItems: "center",
   },
