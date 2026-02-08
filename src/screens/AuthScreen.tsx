@@ -5,7 +5,6 @@ import * as SecureStore from "expo-secure-store"; // Required for reset
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Text,
@@ -31,6 +30,7 @@ import Svg, {
   Rect,
   Stop,
 } from "react-native-svg";
+import CustomAlert from "../components/CustomAlert";
 import {
   decryptData,
   deriveKey,
@@ -123,7 +123,6 @@ const NeuroKeyLogo = () => (
   </View>
 );
 
-// --- COMPONENT 2: SEGMENT CONTROL (TABS) ---
 const SegmentControl = ({ values, selectedIndex, onChange, theme }: any) => {
   const indicatorPosition = useSharedValue(0);
 
@@ -193,7 +192,6 @@ const SegmentControl = ({ values, selectedIndex, onChange, theme }: any) => {
   );
 };
 
-// --- COMPONENT 3: AUTH INPUT ---
 const AuthInput = ({
   icon,
   placeholder,
@@ -265,7 +263,7 @@ export default function AuthScreen() {
   const scheme = useColorScheme();
   const theme = Colors[scheme === "dark" ? "dark" : "light"];
 
-  const [mode, setMode] = useState(0); // 0 = Login, 1 = Signup
+  const [mode, setMode] = useState(0);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -275,7 +273,35 @@ export default function AuthScreen() {
   const [errors, setErrors] = useState<any>({});
   const [isLoading, setIsLoading] = useState(true);
 
-  // Initialize
+  // 👇 NEW: State to control the Custom Alert
+  const [alertConfig, setAlertConfig] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type: "success" | "error" | "warning" | "info";
+    buttons?: any[];
+  }>({
+    visible: false,
+    title: "",
+    message: "",
+    type: "info",
+    buttons: [],
+  });
+
+  // Helper to trigger alert
+  const showAlert = (
+    title: string,
+    message: string,
+    type: any = "info",
+    buttons: any[] = [],
+  ) => {
+    setAlertConfig({ visible: true, title, message, type, buttons });
+  };
+
+  const closeAlert = () => {
+    setAlertConfig((prev) => ({ ...prev, visible: false }));
+  };
+
   useEffect(() => {
     checkUserStatus();
   }, []);
@@ -294,7 +320,6 @@ export default function AuthScreen() {
   const validate = () => {
     let valid = true;
     let newErrors: any = {};
-
     if (!formData.email.includes("@")) {
       newErrors.email = "Invalid email";
       valid = false;
@@ -303,9 +328,7 @@ export default function AuthScreen() {
       newErrors.password = "Min 8 chars";
       valid = false;
     }
-
     if (mode === 1) {
-      // Signup only checks
       if (!formData.name) {
         newErrors.name = "Name required";
         valid = false;
@@ -315,7 +338,6 @@ export default function AuthScreen() {
         valid = false;
       }
     }
-
     setErrors(newErrors);
     return valid;
   };
@@ -334,15 +356,25 @@ export default function AuthScreen() {
           await saveSecureItem("user_email", formData.email);
           await saveSecureItem("vault_salt", salt);
           await saveSecureItem("vault_validation", token);
-          Alert.alert("Success", "Account Created!");
-          router.replace("/(tabs)");
+
+          // 👇 Custom Success Alert
+          showAlert(
+            "Welcome!",
+            "Your account has been created successfully.",
+            "success",
+            [{ text: "Get Started", onPress: () => router.replace("/(tabs)") }],
+          );
         }
       } else {
         // LOGIN
         const salt = await getSecureItem("vault_salt");
         const token = await getSecureItem("vault_validation");
         if (!salt || !token) {
-          Alert.alert("Error", "Account not found.");
+          showAlert(
+            "Account Not Found",
+            "No account exists on this device.",
+            "error",
+          );
           return;
         }
         const key = deriveKey(formData.password, salt);
@@ -351,51 +383,63 @@ export default function AuthScreen() {
         if (decrypted === "VALID_TOKEN") {
           router.replace("/(tabs)");
         } else {
-          Alert.alert("Error", "Wrong password.");
+          // 👇 Custom Error Alert
+          showAlert(
+            "Access Denied",
+            "Incorrect password. Please try again.",
+            "error",
+          );
         }
       }
     } catch {
-      Alert.alert("Error", "Something went wrong.");
+      showAlert(
+        "System Error",
+        "Something went wrong. Please try again.",
+        "error",
+      );
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Handle Forgot Password Logic
+  // 👇 UPDATED: Handle Forgot Password with Custom Alert
   const handleForgotPassword = () => {
-    Alert.alert(
+    showAlert(
       "Reset Vault?",
-      "For security, your password acts as your encryption key. We cannot recover it.\n\nDo you want to wipe your vault and create a new account?",
+      "For security, your password acts as your encryption key.\n\nWe cannot recover it. Do you want to wipe your vault and start over?",
+      "warning",
       [
-        { text: "Cancel", style: "cancel" },
+        { text: "Cancel", style: "cancel", onPress: closeAlert },
         {
           text: "Wipe & Reset",
           style: "destructive",
           onPress: async () => {
+            closeAlert(); // Close warning first
             try {
               setIsLoading(true);
-              // 1. Wipe Keys
               await SecureStore.deleteItemAsync("user_email");
               await SecureStore.deleteItemAsync("vault_salt");
               await SecureStore.deleteItemAsync("vault_validation");
-              // 2. Wipe Data
               await AsyncStorage.clear();
 
-              // 3. Reset State
-              setMode(1); // Switch to Sign Up
+              setMode(1);
               setFormData({
                 name: "",
                 email: "",
                 password: "",
                 confirmPassword: "",
               });
-              Alert.alert(
-                "Reset Complete",
-                "You can now create a new account.",
-              );
-            } catch (e) {
-              console.error(e);
-              Alert.alert("Error", "Failed to reset data.");
+
+              // Show success after wipe
+              setTimeout(() => {
+                showAlert(
+                  "Reset Complete",
+                  "Your vault has been wiped. You can now create a new account.",
+                  "success",
+                );
+              }, 500);
+            } catch {
+              showAlert("Error", "Failed to reset data.", "error");
             } finally {
               setIsLoading(false);
             }
@@ -414,7 +458,7 @@ export default function AuthScreen() {
           justifyContent: "center",
         }}
       >
-        <ActivityIndicator />
+        <ActivityIndicator size="large" color={theme.primary} />
       </View>
     );
 
@@ -449,7 +493,6 @@ export default function AuthScreen() {
             elevation: 5,
           }}
         >
-          {/* TABS */}
           <SegmentControl
             values={["Log In", "Sign Up"]}
             selectedIndex={mode}
@@ -457,7 +500,6 @@ export default function AuthScreen() {
             theme={theme}
           />
 
-          {/* FORM FIELDS */}
           <Animated.View layout={Layout.springify().damping(20).stiffness(150)}>
             {mode === 1 && (
               <Animated.View
@@ -517,7 +559,6 @@ export default function AuthScreen() {
             )}
           </Animated.View>
 
-          {/* SUBMIT BUTTON */}
           <TouchableOpacity
             style={{
               height: 56,
@@ -537,7 +578,6 @@ export default function AuthScreen() {
             </Text>
           </TouchableOpacity>
 
-          {/* FOOTER LINKS */}
           <View style={{ alignItems: "center", marginTop: 20, gap: 15 }}>
             {mode === 0 && (
               <TouchableOpacity onPress={handleForgotPassword}>
@@ -561,6 +601,17 @@ export default function AuthScreen() {
           Protected with end-to-end encryption
         </Text>
       </View>
+
+      {/* 👇 RENDER THE CUSTOM ALERT */}
+      <CustomAlert
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        type={alertConfig.type}
+        buttons={alertConfig.buttons}
+        onClose={closeAlert}
+        theme={theme}
+      />
     </KeyboardAvoidingView>
   );
 }

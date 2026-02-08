@@ -186,6 +186,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   button: {
+    width: "100%",
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: "center",
