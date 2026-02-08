@@ -1,5 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage"; // Required for reset
 import { useRouter } from "expo-router";
+import * as SecureStore from "expo-secure-store"; // Required for reset
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -15,7 +17,7 @@ import {
 import Animated, {
   FadeInDown,
   FadeInUp,
-  FadeOutUp, // <--- CHANGED: Smoother exit animation
+  FadeOutUp,
   Layout,
   useAnimatedStyle,
   useSharedValue,
@@ -359,6 +361,50 @@ export default function AuthScreen() {
     }
   };
 
+  // Handle Forgot Password Logic
+  const handleForgotPassword = () => {
+    Alert.alert(
+      "Reset Vault?",
+      "For security, your password acts as your encryption key. We cannot recover it.\n\nDo you want to wipe your vault and create a new account?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Wipe & Reset",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setIsLoading(true);
+              // 1. Wipe Keys
+              await SecureStore.deleteItemAsync("user_email");
+              await SecureStore.deleteItemAsync("vault_salt");
+              await SecureStore.deleteItemAsync("vault_validation");
+              // 2. Wipe Data
+              await AsyncStorage.clear();
+
+              // 3. Reset State
+              setMode(1); // Switch to Sign Up
+              setFormData({
+                name: "",
+                email: "",
+                password: "",
+                confirmPassword: "",
+              });
+              Alert.alert(
+                "Reset Complete",
+                "You can now create a new account.",
+              );
+            } catch (e) {
+              console.error(e);
+              Alert.alert("Error", "Failed to reset data.");
+            } finally {
+              setIsLoading(false);
+            }
+          },
+        },
+      ],
+    );
+  };
+
   if (isLoading)
     return (
       <View
@@ -412,7 +458,6 @@ export default function AuthScreen() {
           />
 
           {/* FORM FIELDS */}
-          {/* Layout.springify() handles the container height change smoothly */}
           <Animated.View layout={Layout.springify().damping(20).stiffness(150)}>
             {mode === 1 && (
               <Animated.View
@@ -455,7 +500,7 @@ export default function AuthScreen() {
             {mode === 1 && (
               <Animated.View
                 entering={FadeInUp.duration(300)}
-                exiting={FadeOutUp.duration(200)} // <--- CHANGED: Upward exit
+                exiting={FadeOutUp.duration(200)}
               >
                 <AuthInput
                   icon="lock-closed-outline"
@@ -495,7 +540,11 @@ export default function AuthScreen() {
           {/* FOOTER LINKS */}
           <View style={{ alignItems: "center", marginTop: 20, gap: 15 }}>
             {mode === 0 && (
-              <Text style={{ color: theme.subText }}>Forgot Password?</Text>
+              <TouchableOpacity onPress={handleForgotPassword}>
+                <Text style={{ color: theme.subText, fontWeight: "500" }}>
+                  Forgot Password?
+                </Text>
+              </TouchableOpacity>
             )}
           </View>
         </Animated.View>
