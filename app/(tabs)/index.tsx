@@ -14,6 +14,8 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useVault } from "../../src/context/VaultContext";
 import { Colors } from "../../src/theme";
+// 👇 Import the new component
+import UniversalIcon from "../../src/components/UniversalIcon";
 
 // --- HELPER: Random Color Generator for Fallback Icons ---
 const getFallbackColor = (name: string) => {
@@ -32,7 +34,7 @@ const getFallbackColor = (name: string) => {
   return colors[Math.abs(hash) % colors.length];
 };
 
-// --- COMPONENT: BRAND ICON ---
+// --- COMPONENT: BRAND ICON (UPDATED) ---
 const BrandIcon = ({
   serviceName,
   icon,
@@ -44,22 +46,31 @@ const BrandIcon = ({
   color?: string;
   theme: any;
 }) => {
-  // Use the specific color if provided, otherwise generate a consistent color based on name
-  const displayColor = color || getFallbackColor(serviceName);
+  const isImage = icon?.startsWith("http");
 
-  if (icon && icon.startsWith("logo-")) {
-    // Brand Logo (e.g., Google, Apple)
-    return (
-      <View style={[styles.iconContainer, { backgroundColor: displayColor }]}>
-        <Ionicons name={icon as any} size={24} color="#FFFFFF" />
-      </View>
-    );
-  }
+  // Logic:
+  // 1. If it's a real image URL, give it a white/neutral background so transparent PNGs look right.
+  // 2. If it's an Ionicon, use the user's selected color.
+  // 3. Fallback to random hash color.
+  const displayColor = isImage
+    ? theme.dark
+      ? "#333"
+      : "#FFF"
+    : color || getFallbackColor(serviceName);
 
-  // Fallback: Colored Square with Initial
   return (
     <View style={[styles.iconContainer, { backgroundColor: displayColor }]}>
-      <Text style={styles.iconText}>{serviceName.charAt(0).toUpperCase()}</Text>
+      {icon ? (
+        <UniversalIcon
+          icon={icon}
+          size={isImage ? 32 : 24} // Images look better slightly larger inside the container
+          color="#FFFFFF"
+        />
+      ) : (
+        <Text style={styles.iconText}>
+          {serviceName.charAt(0).toUpperCase()}
+        </Text>
+      )}
     </View>
   );
 };
@@ -150,7 +161,7 @@ export default function VaultScreen() {
               }
             }}
           >
-            {/* Left: Icon */}
+            {/* Left: Icon (Uses UniversalIcon internally now) */}
             <BrandIcon
               serviceName={item.name}
               icon={item.icon}
@@ -209,7 +220,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: "#007AFF", // Blue circle like the design
+    backgroundColor: "#007AFF",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -247,6 +258,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginRight: 16,
+    overflow: "hidden", // Ensures image doesn't bleed out
   },
   iconText: {
     color: "#FFFFFF",

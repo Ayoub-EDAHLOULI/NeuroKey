@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useEffect, useState } from "react"; // 👈 Added useEffect
+import React, { useEffect, useState } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -16,6 +16,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import CustomAlert from "../src/components/CustomAlert";
 import { useVault } from "../src/context/VaultContext";
 import { Colors } from "../src/theme";
+// 👇 Import UniversalIcon & Helper
+import UniversalIcon, { getFaviconUrl } from "../src/components/UniversalIcon";
 
 // Use same icon list config as Add Screen
 const BRAND_ICONS = [
@@ -58,13 +60,15 @@ export default function EditPasswordScreen() {
   const [url, setUrl] = useState((params.url as string) || "");
   const [notes, setNotes] = useState((params.notes as string) || "");
 
-  // Find initial icon
-  const initialIcon =
-    BRAND_ICONS.find((b) => b.icon === params.icon) || BRAND_ICONS[10];
-  const [selectedIcon, setSelectedIcon] = useState(initialIcon);
-  const [showPassword, setShowPassword] = useState(false);
+  // Initialize Icon state
+  // Check if existing icon is a URL or a preset name
+  const existingIcon = (params.icon as string) || BRAND_ICONS[10].icon;
+  const existingColor = (params.color as string) || BRAND_ICONS[10].color;
 
-  // Strength State
+  const [selectedIcon, setSelectedIcon] = useState(existingIcon);
+  const [selectedColor, setSelectedColor] = useState(existingColor);
+
+  const [showPassword, setShowPassword] = useState(false);
   const [passwordStrength, setPasswordStrength] = useState(0);
 
   // Alert State
@@ -88,8 +92,20 @@ export default function EditPasswordScreen() {
     setAlertConfig((prev) => ({ ...prev, visible: false }));
   };
 
-  // --- GENERATOR HELPERS ---
+  // --- 👇 NEW: AUTO-FETCH FAVICON LOGIC ---
+  // Only trigger if URL changes AND it's different from the initial one
+  // (We don't want to overwrite a custom icon just because the page loaded)
+  useEffect(() => {
+    if (url && url !== params.url && url.length > 4 && url.includes(".")) {
+      const fetchIcon = getFaviconUrl(url);
+      if (fetchIcon) {
+        setSelectedIcon(fetchIcon);
+        setSelectedColor(theme.card);
+      }
+    }
+  }, [url, theme.card, params.url]);
 
+  // --- GENERATOR HELPERS ---
   const generatePassword = () => {
     const chars =
       "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+";
@@ -100,7 +116,6 @@ export default function EditPasswordScreen() {
     setPassword(autoPass);
   };
 
-  // Strength Calculator
   useEffect(() => {
     let score = 0;
     if (password.length > 8) score++;
@@ -130,8 +145,8 @@ export default function EditPasswordScreen() {
       password,
       url,
       notes,
-      icon: selectedIcon.icon,
-      color: selectedIcon.color,
+      icon: selectedIcon, // Could be URL or "logo-..."
+      color: selectedColor,
     });
 
     router.back();
@@ -161,6 +176,40 @@ export default function EditPasswordScreen() {
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
         {/* ICON PICKER */}
         <View style={{ marginTop: 20, marginBottom: 20 }}>
+          {/* 👇 Preview Header */}
+          <View
+            style={{
+              flexDirection: "row",
+              justifyContent: "space-between",
+              alignItems: "center",
+              paddingHorizontal: 20,
+              marginBottom: 10,
+            }}
+          >
+            <Text
+              style={{ fontSize: 13, fontWeight: "500", color: theme.subText }}
+            >
+              CHOOSE ICON
+            </Text>
+            <View
+              style={[
+                styles.iconCircle,
+                {
+                  backgroundColor: selectedColor,
+                  width: 40,
+                  height: 40,
+                  borderRadius: 20,
+                },
+              ]}
+            >
+              <UniversalIcon
+                icon={selectedIcon}
+                size={24}
+                color={selectedIcon.startsWith("http") ? undefined : "#FFF"}
+              />
+            </View>
+          </View>
+
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -169,7 +218,10 @@ export default function EditPasswordScreen() {
             {BRAND_ICONS.map((brand) => (
               <TouchableOpacity
                 key={brand.id}
-                onPress={() => setSelectedIcon(brand)}
+                onPress={() => {
+                  setSelectedIcon(brand.icon);
+                  setSelectedColor(brand.color);
+                }}
                 style={{ alignItems: "center", marginRight: 20 }}
               >
                 <View
@@ -177,10 +229,10 @@ export default function EditPasswordScreen() {
                     styles.iconCircle,
                     {
                       backgroundColor:
-                        selectedIcon.id === brand.id ? brand.color : theme.card,
+                        selectedIcon === brand.icon ? brand.color : theme.card,
                       borderWidth: 2,
                       borderColor:
-                        selectedIcon.id === brand.id
+                        selectedIcon === brand.icon
                           ? "transparent"
                           : theme.border,
                     },
@@ -189,9 +241,7 @@ export default function EditPasswordScreen() {
                   <Ionicons
                     name={brand.icon as any}
                     size={28}
-                    color={
-                      selectedIcon.id === brand.id ? "#FFF" : theme.subText
-                    }
+                    color={selectedIcon === brand.icon ? "#FFF" : theme.subText}
                   />
                 </View>
                 <Text
@@ -321,11 +371,14 @@ export default function EditPasswordScreen() {
             ]}
           >
             <Text style={[styles.label, { color: theme.text }]}>URL</Text>
+            {/* 👇 UPDATED: URL INPUT */}
             <TextInput
               style={[styles.input, { color: theme.text }]}
               value={url}
               onChangeText={setUrl}
               autoCapitalize="none"
+              placeholder="https://example.com"
+              placeholderTextColor={theme.subText}
             />
           </View>
           <View
