@@ -1,8 +1,8 @@
+import CustomAlert from "@/src/components/CustomAlert";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -66,7 +66,13 @@ export default function EditPasswordScreen() {
 
   const handleUpdate = () => {
     if (!serviceName || !password) {
-      Alert.alert("Missing Info", "Name and Password are required.");
+      CustomAlert({
+        visible: true,
+        title: "Missing Info",
+        message: "Name and Password are required.",
+        onClose: () => {},
+        theme,
+      });
       return;
     }
 

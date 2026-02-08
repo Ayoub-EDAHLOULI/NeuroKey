@@ -1,9 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Updates from "expo-updates";
-import React from "react";
+import React, { useState } from "react";
 import {
-  Alert,
   Linking,
   ScrollView,
   StyleSheet,
@@ -15,6 +14,8 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors } from "../../src/theme";
+// 👇 Import your Custom Alert
+import CustomAlert from "../../src/components/CustomAlert";
 
 export default function SettingsScreen() {
   const scheme = useColorScheme();
@@ -25,26 +26,64 @@ export default function SettingsScreen() {
   const [faceIdEnabled, setFaceIdEnabled] = React.useState(true);
   const [autoLock, setAutoLock] = React.useState(true);
 
+  // 👇 NEW: State for Custom Alert
+  const [alertConfig, setAlertConfig] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type: "success" | "error" | "warning" | "info";
+    buttons?: any[];
+  }>({
+    visible: false,
+    title: "",
+    message: "",
+    type: "info",
+    buttons: [],
+  });
+
+  const showAlert = (
+    title: string,
+    message: string,
+    type: any = "info",
+    buttons: any[] = [],
+  ) => {
+    setAlertConfig({ visible: true, title, message, type, buttons });
+  };
+
+  const closeAlert = () => {
+    setAlertConfig((prev) => ({ ...prev, visible: false }));
+  };
+
   // --- ACTIONS ---
 
   // 1. CLEAR VAULT (Danger Zone)
   const handleClearData = async () => {
-    Alert.alert(
+    showAlert(
       "Wipe All Data?",
       "This will permanently delete all passwords and cards. This cannot be undone.",
+      "warning",
       [
-        { text: "Cancel", style: "cancel" },
+        { text: "Cancel", style: "cancel", onPress: closeAlert },
         {
           text: "Delete Everything",
           style: "destructive",
           onPress: async () => {
+            closeAlert(); // Close the warning modal
             try {
               await AsyncStorage.clear();
-              Alert.alert("Success", "Vault wiped. Please restart the app.", [
-                { text: "OK", onPress: () => Updates.reloadAsync() },
-              ]);
+              // Show success modal after a small delay
+              setTimeout(() => {
+                showAlert(
+                  "Success",
+                  "Vault wiped. The app will now reload.",
+                  "success",
+                  [{ text: "OK", onPress: () => Updates.reloadAsync() }],
+                );
+              }, 500);
             } catch {
-              Alert.alert("Error", "Failed to clear data.");
+              setTimeout(() => {
+                showAlert("Error", "Failed to clear data.", "error");
+              }, 500);
             }
           },
         },
@@ -73,7 +112,7 @@ export default function SettingsScreen() {
     <TouchableOpacity
       style={[styles.row, { borderBottomColor: theme.border }]}
       onPress={onPress}
-      disabled={isSwitch} // Disable press if it's a switch
+      disabled={isSwitch}
     >
       <View style={{ flexDirection: "row", alignItems: "center" }}>
         <View style={[styles.iconBox, { backgroundColor: color }]}>
@@ -149,7 +188,7 @@ export default function SettingsScreen() {
             color="#007AFF"
             label="Backup Vault"
             onPress={() =>
-              Alert.alert("Backup", "Cloud backup feature coming soon!")
+              showAlert("Backup", "Cloud backup feature coming soon!", "info")
             }
           />
           <SettingRow
@@ -157,7 +196,7 @@ export default function SettingsScreen() {
             color="#5856D6"
             label="Import Passwords"
             onPress={() =>
-              Alert.alert("Import", "CSV Import feature coming soon!")
+              showAlert("Import", "CSV Import feature coming soon!", "info")
             }
           />
         </View>
@@ -177,7 +216,7 @@ export default function SettingsScreen() {
             icon="star-outline"
             color="#FFD60A"
             label="Rate App"
-            onPress={() => Alert.alert("Thanks!", "You are awesome!")}
+            onPress={() => showAlert("Thanks!", "You are awesome!", "success")}
           />
         </View>
 
@@ -204,6 +243,17 @@ export default function SettingsScreen() {
           NeuroKey v1.0.0
         </Text>
       </ScrollView>
+
+      {/* 👇 RENDER CUSTOM ALERT */}
+      <CustomAlert
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        type={alertConfig.type}
+        buttons={alertConfig.buttons}
+        onClose={closeAlert}
+        theme={theme}
+      />
     </View>
   );
 }

@@ -4,7 +4,6 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Platform,
   ScrollView,
   StyleSheet,
@@ -14,6 +13,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import CustomAlert from "../src/components/CustomAlert";
 import { useVault } from "../src/context/VaultContext";
 import { Colors } from "../src/theme";
 
@@ -80,21 +80,34 @@ export default function DetailScreen() {
   // CASE 3: Item found - Render normal UI
   const copyToClipboard = async (text: string, label: string) => {
     await Clipboard.setStringAsync(text);
-    if (Platform.OS === "ios") Alert.alert("Copied", `${label} copied.`);
+    CustomAlert({
+      visible: true,
+      title: "Copied",
+      message: `${label} copied.`,
+      onClose: () => {},
+      theme,
+    });
   };
 
   const handleDelete = () => {
-    Alert.alert("Delete Password", "Are you sure?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: () => {
-          deleteVaultItem(item.id);
-          router.back();
+    CustomAlert({
+      visible: true,
+      title: "Delete Password",
+      message: "Are you sure?",
+      onClose: () => {},
+      theme,
+      buttons: [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => {
+            deleteVaultItem(item.id);
+            router.back();
+          },
         },
-      },
-    ]);
+      ],
+    });
   };
 
   const renderIcon = () => {

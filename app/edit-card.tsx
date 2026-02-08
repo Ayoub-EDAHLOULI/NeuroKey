@@ -2,7 +2,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -15,6 +14,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import CreditCard from "../src/components/CreditCard";
+import CustomAlert from "../src/components/CustomAlert";
 import { useVault } from "../src/context/VaultContext";
 import { Colors } from "../src/theme";
 
@@ -57,7 +57,13 @@ export default function EditCardScreen() {
   // --- UPDATE ACTION ---
   const handleUpdate = () => {
     if (!holder || number.length < 15 || !expiry) {
-      Alert.alert("Incomplete Card", "Please fill in the card details.");
+      CustomAlert({
+        visible: true,
+        title: "Incomplete Card",
+        message: "Please fill in the card details.",
+        onClose: () => {},
+        theme,
+      });
       return;
     }
 

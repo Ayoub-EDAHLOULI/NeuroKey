@@ -1,9 +1,9 @@
+import CustomAlert from "@/src/components/CustomAlert";
 import { Ionicons } from "@expo/vector-icons";
 import Slider from "@react-native-community/slider";
 import * as Clipboard from "expo-clipboard";
 import React, { useCallback, useEffect, useState } from "react";
 import {
-  Alert,
   Platform,
   ScrollView,
   StyleSheet,
@@ -88,7 +88,13 @@ export default function GeneratorScreen() {
 
   const copyToClipboard = async () => {
     await Clipboard.setStringAsync(password);
-    Alert.alert("Copied", "Password copied to clipboard.");
+    CustomAlert({
+      visible: true,
+      title: "Copied",
+      message: "Password copied to clipboard.",
+      onClose: () => {},
+      theme,
+    });
   };
 
   return (
