@@ -14,13 +14,20 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useVault, VaultItem } from "../src/context/VaultContext";
 import { Colors } from "../src/theme";
 
-// A SMART MERGE FUNCTION TO COMBINE LOCAL AND REMOTE VAULTS
-const smartMerge = (localVault: VaultItem[], remoteVault: VaultItem[]) => {
+// SMART MERGE ALGORITHM: Combines local and remote vaults, preferring the most recently updated version of each item. Handles missing timestamps gracefully.
+const smartMerge = (
+  localVault: VaultItem[] = [],
+  remoteVault: VaultItem[] = [],
+) => {
   const mergedMap = new Map();
 
-  localVault.forEach((item) => mergedMap.set(item.id, item));
+  // Safely ensure both inputs are arrays to prevent crashes
+  const safeLocal = Array.isArray(localVault) ? localVault : [];
+  const safeRemote = Array.isArray(remoteVault) ? remoteVault : [];
 
-  remoteVault.forEach((remoteItem) => {
+  safeLocal.forEach((item) => mergedMap.set(item.id, item));
+
+  safeRemote.forEach((remoteItem) => {
     const localItem = mergedMap.get(remoteItem.id);
 
     if (!localItem) {
@@ -44,7 +51,6 @@ export default function SyncScreen() {
   const theme = Colors[scheme === "dark" ? "dark" : "light"];
   const insets = useSafeAreaInsets();
 
-  // Grab both items AND setItems
   const { items, setItems } = useVault();
 
   const [permission, requestPermission] = useCameraPermissions();
@@ -123,19 +129,23 @@ export default function SyncScreen() {
         const syncResponse = await fetch(`${data}/sync`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ items: items }),
+          // Safely ensure we always send an array
+          body: JSON.stringify({ items: Array.isArray(items) ? items : [] }),
         });
 
-        // Expect desktop_items back from Rust!
         const syncJson = (await syncResponse.json()) as {
           status: string;
           desktop_items?: VaultItem[];
         };
 
-        if (syncJson.status === "success" && syncJson.desktop_items) {
-          // Run the Smart Merge!
-          const mergedVault = smartMerge(items, syncJson.desktop_items);
-          await setItems(mergedVault); // Save to local mobile storage
+        if (syncJson.status === "success") {
+          // Safely extract desktop items, defaulting to empty array if missing
+          const safeDesktopItems = Array.isArray(syncJson.desktop_items)
+            ? syncJson.desktop_items
+            : [];
+
+          const mergedVault = smartMerge(items, safeDesktopItems);
+          await setItems(mergedVault);
 
           setConnectionStatus("success");
 
@@ -148,16 +158,17 @@ export default function SyncScreen() {
       } else {
         throw new Error("Unrecognized device.");
       }
-    } catch {
+    } catch (error: any) {
+      console.error("SYNC CRASH: ", error); // Print to your terminal
       setConnectionStatus("error");
-      setErrorMessage(
-        "Transfer failed. Ensure both devices are on the exact same Wi-Fi network.",
-      );
+
+      // Show the EXACT error on the phone screen instead of the generic one
+      setErrorMessage(error.message || "Unknown transfer error occurred.");
 
       setTimeout(() => {
         setScanned(false);
         setConnectionStatus("scanning");
-      }, 3000);
+      }, 3500); // Wait slightly longer so you can read the error!
     }
   };
 
