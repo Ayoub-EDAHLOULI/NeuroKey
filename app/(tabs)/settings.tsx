@@ -193,6 +193,12 @@ export default function SettingsScreen() {
         </Text>
         <View style={[styles.group, { backgroundColor: theme.card }]}>
           <SettingRow
+            icon="sync-outline"
+            color="#AF52DE"
+            label="Sync with Desktop"
+            onPress={() => router.push("/sync")}
+          />
+          <SettingRow
             icon="cloud-upload-outline"
             color="#007AFF"
             label="Backup Vault"

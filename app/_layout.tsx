@@ -107,6 +107,10 @@ export default function RootLayout() {
             name="about"
             options={{ presentation: "modal", headerShown: false }}
           />
+          <Stack.Screen
+            name="sync"
+            options={{ presentation: "modal", headerShown: false }}
+          />
         </Stack>
         <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />
       </ThemeProvider>
