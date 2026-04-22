@@ -1,44 +1,39 @@
-# NeuroKey 🧠🔐
+# 🧠 NeuroKey - Biometric Password Manager
 
-**NeuroKey** is a next-generation, AI-enhanced password manager built with **React Native** and **Zero-Knowledge Architecture**.
+**NeuroKey** is a secure, offline-first password manager built with **React Native** and **Expo**. It features military-grade encryption, biometric authentication, and AI-powered breach detection to keep digital identities safe.
 
-Unlike traditional managers, NeuroKey uses on-device AI to assist users with memory and security hygiene without ever sending sensitive data to the cloud.
+[Insert Screenshot of your App Here]
 
 ## 🚀 Key Features
 
-* **Zero-Knowledge Security:** Client-side AES-256-GCM encryption. The master password never leaves the device.
-* **AI-Powered Memory Hints:** Uses local NLP to generate personalized cognitive hints for passwords instead of revealing them.
-* **Smart Breach Detection:** On-device ML analysis to detect weak or common password patterns.
-* **BYOS (Bring Your Own Storage):** Syncs encrypted vaults via the user's personal Google Drive (No proprietary cloud servers).
+### 🔒 Security First
+- **Zero-Knowledge Architecture:** Data is encrypted locally. We cannot see your passwords.
+- **AES-256 Encryption:** All vault data is encrypted using the Advanced Encryption Standard before being stored.
+- **Biometric Lock:** Supports FaceID, TouchID, and Android Biometrics via `expo-local-authentication`.
 
-## 🛠 Tech Stack
+### 🛡️ Breach Radar (AI Feature)
+- **k-Anonymity Checks:** Checks passwords against a database of 800M+ leaked credentials *without* ever sending the password to the internet.
+- **Real-Time Analysis:** Instantly warns users if a password is compromised.
 
-* **Mobile:** React Native (Expo)
-* **Core Logic:** JavaScript / C# (Planned Desktop)
-* **State Management:** Redux Toolkit
-* **Encryption:** Argon2 (KDF) & AES-GCM
-* **AI Engine:** TensorFlow Lite / ONNX Runtime (Mobile)
+### 🎨 Intelligent UX
+- **Smart Favicons:** Automatically fetches high-res brand logos for stored websites.
+- **Strength Meter:** Real-time visual feedback on password complexity.
+- **Dark Mode:** Fully adaptive UI for light and dark environments.
+
+## 🛠️ Tech Stack
+
+- **Framework:** React Native (Expo SDK 52)
+- **Language:** TypeScript
+- **State Management:** React Context API
+- **Storage:** `expo-secure-store` (for Keys) & `AsyncStorage` (for Encrypted Blob)
+- **Cryptography:** `expo-crypto` (SHA-1, Random UUIDs)
+- **Navigation:** `expo-router` (File-based routing)
 
 ## 📦 Installation
 
-1.  Clone the repo:
-    ```bash
-    git clone [https://github.com/yourusername/neurokey.git](https://github.com/yourusername/neurokey.git)
-    ```
-2.  Install dependencies:
-    ```bash
-    npm install
-    ```
-3.  Run on device:
-    ```bash
-    npx expo start
-    ```
-
-## 🛡 Security Architecture
-
-* **Master Key:** Derived using Argon2id with a unique salt per user.
-* **Vault Data:** Encrypted with AES-256-GCM.
-* **Storage:** Local SecureStore (iOS/Android) & Encrypted JSON sync.
-
+1. **Clone the repository**
+   ```bash
+   git clone [https://github.com/Ayoub-EDAHLOULI/neurokey.git](https://github.com/Ayoub-EDAHLOULI/neurokey.git)
+   cd neurokey
 ---
-*Built with ❤️ by [Your Name] for the AI Master's Portfolio.*
+*Built with ❤️ by AYOUB EDAHLOULI*
