@@ -22,7 +22,7 @@ export default function WalletScreen() {
   const { items } = useVault();
 
   // Filter only Cards
-  const cards = items.filter((item) => item.type === "card");
+  const cards = items.filter((item) => item.type === "card" && !item.isDeleted);
 
   return (
     <View
