@@ -15,10 +15,17 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import CustomAlert from "../../src/components/CustomAlert";
+import { useVault } from "../../src/context/VaultContext";
+import {
+  clearBiometricKey,
+  saveBiometricKey,
+  wipeVaultSecrets,
+} from "../../src/core/security/vaultAuth";
 import { Colors } from "../../src/theme";
 
 export default function SettingsScreen() {
   const router = useRouter();
+  const { getVaultKey } = useVault();
   const scheme = useColorScheme();
   const theme = Colors[scheme === "dark" ? "dark" : "light"];
   const insets = useSafeAreaInsets();
@@ -80,6 +87,15 @@ export default function SettingsScreen() {
         fallbackLabel: "Use Password",
       });
       if (result.success) {
+        const key = getVaultKey();
+        if (!key) return;
+        try {
+          // Store the vault key (not the password) behind the OS biometric check
+          await saveBiometricKey(key);
+        } catch {
+          showAlert("Error", "Could not enable biometric unlock.", "error");
+          return;
+        }
         setFaceIdEnabled(true);
         await AsyncStorage.setItem("use_biometric", "true");
         showAlert("Secured", "Face ID / Touch ID enabled.", "success");
@@ -87,6 +103,7 @@ export default function SettingsScreen() {
     } else {
       setFaceIdEnabled(false);
       await AsyncStorage.setItem("use_biometric", "false");
+      await clearBiometricKey();
     }
   };
 
@@ -105,6 +122,7 @@ export default function SettingsScreen() {
         style: "destructive",
         onPress: async () => {
           closeAlert();
+          await wipeVaultSecrets(); // email, salt, KDF params, verifier, biometric key
           await AsyncStorage.clear();
           Updates.reloadAsync();
         },

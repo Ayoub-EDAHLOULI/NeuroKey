@@ -2,7 +2,6 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as LocalAuthentication from "expo-local-authentication";
 import { useRouter } from "expo-router";
-import * as SecureStore from "expo-secure-store";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -32,14 +31,15 @@ import Svg, {
   Stop,
 } from "react-native-svg";
 import CustomAlert from "../src/components/CustomAlert";
+import { useVault } from "../src/context/VaultContext";
 import {
-  decryptData,
-  deriveKey,
-  encryptData,
-  generateSalt,
-  getSecureItem,
-  saveSecureItem,
-} from "../src/core/security/encryption";
+  createVault,
+  getBiometricKey,
+  getSavedEmail,
+  saveBiometricKey,
+  unlockWithPassword,
+  wipeVaultSecrets,
+} from "../src/core/security/vaultAuth";
 import { Colors } from "../src/theme";
 
 // --- COMPONENT 1: NEUROKEY LOGO ---
@@ -261,6 +261,12 @@ const AuthInput = ({
 // --- MAIN SCREEN ---
 export default function AuthScreen() {
   const router = useRouter();
+  const { unlock, lock } = useVault();
+
+  // Reaching this screen (launch or auto-lock) always clears the vault from memory
+  useEffect(() => {
+    lock();
+  }, [lock]);
   const scheme = useColorScheme();
   const theme = Colors[scheme === "dark" ? "dark" : "light"];
 
@@ -301,51 +307,32 @@ export default function AuthScreen() {
     setAlertConfig((prev) => ({ ...prev, visible: false }));
 
   // --- BIOMETRIC AUTH HANDLER ---
+  // The OS releases the stored vault key only after a successful biometric check.
   const handleBiometricAuth = useCallback(async () => {
     const hasHardware = await LocalAuthentication.hasHardwareAsync();
     if (!hasHardware) return;
 
-    const result = await LocalAuthentication.authenticateAsync({
-      promptMessage: "Unlock NeuroKey",
-      fallbackLabel: "Enter Password",
-    });
+    const key = await getBiometricKey();
+    if (!key) return; // cancelled / not set up yet: the password form stays available
 
-    if (result.success) {
-      const savedPassword = await SecureStore.getItemAsync("auth_password");
-
-      if (savedPassword) {
-        setIsLoading(true);
-        const salt = await getSecureItem("vault_salt");
-        const token = await getSecureItem("vault_validation");
-
-        const key = deriveKey(savedPassword, salt!);
-        const decrypted = decryptData(token!, key);
-
-        if (decrypted === "VALID_TOKEN") {
-          router.replace("/(tabs)");
-        } else {
-          setIsLoading(false);
-          showAlert(
-            "Error",
-            "Biometric data stale. Please login with password.",
-            "error",
-          );
-        }
-      } else {
-        showAlert(
-          "Setup Required",
-          "Please log in with your password once to enable Face ID.",
-          "info",
-        );
-      }
+    setIsLoading(true);
+    if (await unlock(key)) {
+      router.replace("/(tabs)");
+    } else {
+      setIsLoading(false);
+      showAlert(
+        "Error",
+        "Biometric data stale. Please login with password.",
+        "error",
+      );
     }
-  }, [router, showAlert]);
+  }, [router, showAlert, unlock]);
 
   // --- 1. CHECK USER STATUS ON LOAD ---
   useEffect(() => {
     const checkUserStatus = async () => {
       try {
-        const savedEmail = await getSecureItem("user_email");
+        const savedEmail = await getSavedEmail();
         const biometricEnabled = await AsyncStorage.getItem("use_biometric");
 
         if (savedEmail) {
@@ -403,29 +390,19 @@ export default function AuthScreen() {
     try {
       if (mode === 1) {
         // REGISTER
-        const salt = generateSalt();
-        const key = deriveKey(formData.password, salt);
-        const token = encryptData("VALID_TOKEN", key);
-        if (token) {
-          await saveSecureItem("user_email", formData.email);
-          await saveSecureItem("vault_salt", salt);
-          await saveSecureItem("vault_validation", token);
+        const key = await createVault(formData.email, formData.password);
+        await unlock(key);
 
-          // 👇 Save Password for future Biometric use
-          await SecureStore.setItemAsync("auth_password", formData.password);
-
-          showAlert(
-            "Welcome!",
-            "Your account has been created successfully.",
-            "success",
-            [{ text: "Get Started", onPress: () => router.replace("/(tabs)") }],
-          );
-        }
+        showAlert(
+          "Welcome!",
+          "Your account has been created successfully.",
+          "success",
+          [{ text: "Get Started", onPress: () => router.replace("/(tabs)") }],
+        );
       } else {
         // LOGIN
-        const salt = await getSecureItem("vault_salt");
-        const token = await getSecureItem("vault_validation");
-        if (!salt || !token) {
+        const savedEmail = await getSavedEmail();
+        if (!savedEmail) {
           showAlert(
             "Account Not Found",
             "No account exists on this device.",
@@ -433,21 +410,32 @@ export default function AuthScreen() {
           );
           return;
         }
-        const key = deriveKey(formData.password, salt);
-        const decrypted = decryptData(token, key);
 
-        if (decrypted === "VALID_TOKEN") {
-          // 👇 Save Password for future Biometric use (Update if changed)
-          await SecureStore.setItemAsync("auth_password", formData.password);
-
-          router.replace("/(tabs)");
-        } else {
+        const key = await unlockWithPassword(formData.password);
+        if (!key) {
           showAlert(
             "Access Denied",
             "Incorrect password. Please try again.",
             "error",
           );
+          return;
         }
+
+        if (!(await unlock(key))) {
+          showAlert(
+            "Vault Error",
+            "Your vault data could not be decrypted on this device.",
+            "error",
+          );
+          return;
+        }
+
+        // Keep the biometric key in sync with the current vault key
+        if ((await AsyncStorage.getItem("use_biometric")) === "true") {
+          await saveBiometricKey(key).catch(() => {});
+        }
+
+        router.replace("/(tabs)");
       }
     } catch {
       showAlert(
@@ -474,10 +462,7 @@ export default function AuthScreen() {
             closeAlert();
             try {
               setIsLoading(true);
-              await SecureStore.deleteItemAsync("user_email");
-              await SecureStore.deleteItemAsync("vault_salt");
-              await SecureStore.deleteItemAsync("vault_validation");
-              await SecureStore.deleteItemAsync("auth_password"); // Clear biometric pass
+              await wipeVaultSecrets(); // email, salt, KDF params, verifier, biometric key
               await AsyncStorage.clear();
               setMode(1);
               setFormData({

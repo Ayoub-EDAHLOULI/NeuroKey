@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 // 👇 Import the component
 import CustomAlert from "../../src/components/CustomAlert";
 import { Colors } from "../../src/theme";
+import { secureRandomInt } from "../../src/core/security/vaultCrypto";
 
 export default function GeneratorScreen() {
   const scheme = useColorScheme();
@@ -70,7 +71,7 @@ export default function GeneratorScreen() {
 
     let generated = "";
     for (let i = 0; i < length; i++) {
-      const randomIndex = Math.floor(Math.random() * chars.length);
+      const randomIndex = secureRandomInt(chars.length);
       generated += chars[randomIndex];
     }
     setPassword(generated);

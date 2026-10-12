@@ -12,7 +12,37 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useVault, VaultItem } from "../src/context/VaultContext";
+import { decrypt, encrypt } from "../src/core/security/vaultCrypto";
 import { Colors } from "../src/theme";
+
+// QR code shown by NeuroKey Desktop: one-time session id + 256-bit key.
+// The key never travels over the network; it is only exchanged visually.
+interface SyncQrPayload {
+  v: 2;
+  url: string;
+  sid: string;
+  key: string;
+}
+
+const parseSyncQr = (data: string): SyncQrPayload => {
+  try {
+    const qr = JSON.parse(data);
+    if (
+      qr?.v === 2 &&
+      typeof qr.url === "string" &&
+      /^http:\/\/[\d.]+:\d+$/.test(qr.url) &&
+      /^[0-9a-f]{32}$/.test(qr.sid) &&
+      /^[0-9a-f]{64}$/.test(qr.key)
+    ) {
+      return qr;
+    }
+  } catch {
+    // fall through
+  }
+  throw new Error(
+    "Unrecognized QR code. Please update NeuroKey Desktop to the latest version.",
+  );
+};
 
 // SMART MERGE ALGORITHM: Combines local and remote vaults, preferring the most recently updated version of each item. Handles missing timestamps gracefully.
 const smartMerge = (
@@ -118,7 +148,9 @@ export default function SyncScreen() {
     setConnectionStatus("connecting");
 
     try {
-      const response = await fetch(`${data}/ping`, {
+      const qr = parseSyncQr(data);
+
+      const response = await fetch(`${qr.url}/ping`, {
         method: "GET",
         headers: { "Content-Type": "application/json" },
       });
@@ -126,20 +158,34 @@ export default function SyncScreen() {
       const json = (await response.json()) as { status: string };
 
       if (json.status === "NeuroKey Desktop is ready!") {
-        const syncResponse = await fetch(`${data}/sync`, {
+        // Everything on the wire is encrypted + authenticated with the QR session key
+        const syncResponse = await fetch(`${qr.url}/sync`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ items: Array.isArray(items) ? items : [] }),
+          headers: {
+            "Content-Type": "application/json",
+            "X-NeuroKey-Session": qr.sid,
+          },
+          body: JSON.stringify({
+            payload: encrypt(
+              JSON.stringify(Array.isArray(items) ? items : []),
+              qr.key,
+            ),
+          }),
         });
 
         const syncJson = (await syncResponse.json()) as {
           status: string;
-          desktop_items?: VaultItem[];
+          payload?: string;
         };
 
-        if (syncJson.status === "success") {
-          const safeDesktopItems = Array.isArray(syncJson.desktop_items)
-            ? syncJson.desktop_items
+        if (syncJson.status === "success" && syncJson.payload) {
+          const decrypted = decrypt(syncJson.payload, qr.key);
+          if (decrypted === null) {
+            throw new Error("Desktop response could not be verified.");
+          }
+          const desktopItems = JSON.parse(decrypted);
+          const safeDesktopItems = Array.isArray(desktopItems)
+            ? (desktopItems as VaultItem[])
             : [];
 
           const mergedVault = smartMerge(items, safeDesktopItems);
@@ -153,7 +199,9 @@ export default function SyncScreen() {
             }
           }, 2000);
         } else {
-          throw new Error("Desktop rejected the transfer.");
+          throw new Error(
+            "Desktop rejected the transfer. Generate a new QR code and try again.",
+          );
         }
       } else {
         throw new Error("Unrecognized device.");

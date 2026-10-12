@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useCallback, useContext, useRef, useState } from "react";
 import { v4 as uuidv4 } from "uuid";
+import { decrypt, encrypt, isEncryptedPayload } from "../core/security/vaultCrypto";
 
 export type VaultItemType = "password" | "card" | "note";
 
@@ -33,32 +34,69 @@ interface VaultContextType {
   deleteVaultItem: (id: string) => void;
   updateVaultItem: (id: string, updates: Partial<VaultItem>) => void;
   setItems: (items: VaultItem[]) => Promise<void>;
+  /** Decrypts the stored vault with the master key. Returns false if it can't be read. */
+  unlock: (key: string) => Promise<boolean>;
+  /** Clears the key and decrypted items from memory. */
+  lock: () => void;
+  isUnlocked: boolean;
+  /** Master key of the unlocked vault (memory only), e.g. to enable biometrics. */
+  getVaultKey: () => string | null;
 }
 
 const VaultContext = createContext<VaultContextType>({} as VaultContextType);
 const STORAGE_KEY = "@neurokey_vault_v2";
 
+const persistEncrypted = (data: VaultItem[], key: string | null) => {
+  if (!key) throw new Error("Vault is locked");
+  return AsyncStorage.setItem(STORAGE_KEY, encrypt(JSON.stringify(data), key));
+};
+
 export const VaultProvider = ({ children }: { children: React.ReactNode }) => {
   const [items, setItems] = useState<VaultItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isUnlocked, setIsUnlocked] = useState(false);
+  // The master key only ever lives in memory while the vault is unlocked
+  const keyRef = useRef<string | null>(null);
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const jsonValue = await AsyncStorage.getItem(STORAGE_KEY);
-        if (jsonValue != null) setItems(JSON.parse(jsonValue));
-      } catch (e) {
-        console.error("Failed to load", e);
-      } finally {
-        setIsLoading(false);
+  const unlock = useCallback(async (key: string) => {
+    setIsLoading(true);
+    try {
+      const stored = await AsyncStorage.getItem(STORAGE_KEY);
+      let data: VaultItem[] = [];
+
+      if (stored && isEncryptedPayload(stored)) {
+        const json = decrypt(stored, key);
+        if (json === null) return false; // wrong key or tampered data
+        data = JSON.parse(json);
+      } else if (stored) {
+        // v1 vaults were saved as plain JSON: encrypt them now
+        data = JSON.parse(stored);
       }
-    };
-    loadData();
+
+      keyRef.current = key;
+      setItems(data);
+      setIsUnlocked(true);
+      if (stored && !isEncryptedPayload(stored)) await persistEncrypted(data, key);
+      return true;
+    } catch (e) {
+      console.error("Failed to unlock vault", e);
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
+
+  const lock = useCallback(() => {
+    keyRef.current = null;
+    setItems([]);
+    setIsUnlocked(false);
+  }, []);
+
+  const getVaultKey = useCallback(() => keyRef.current, []);
 
   const saveVault = async (newData: VaultItem[]) => {
     setItems(newData);
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
+    await persistEncrypted(newData, keyRef.current);
   };
 
   const addVaultItem = (
@@ -101,6 +139,10 @@ export const VaultProvider = ({ children }: { children: React.ReactNode }) => {
         deleteVaultItem,
         updateVaultItem,
         setItems: saveVault,
+        unlock,
+        lock,
+        isUnlocked,
+        getVaultKey,
       }}
     >
       {children}
