@@ -10,8 +10,18 @@
     "jsEngine": "hermes",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.ayoub.neurokey"
+      "supportsTablet": false,
+      "bundleIdentifier": "com.ayoub.neurokey",
+      "buildNumber": "1",
+      "config": {
+        "usesNonExemptEncryption": false
+      },
+      "infoPlist": {
+        "NSAppTransportSecurity": {
+          "NSAllowsLocalNetworking": true
+        },
+        "NSLocalNetworkUsageDescription": "NeuroKey connects to NeuroKey Desktop on your local Wi-Fi to sync your encrypted vault."
+      }
     },
     "android": {
       "versionCode": 3,
@@ -33,8 +43,26 @@
     },
     "plugins": [
       "expo-router",
-      "expo-secure-store",
-      "expo-local-authentication",
+      [
+        "expo-secure-store",
+        {
+          "faceIDPermission": "NeuroKey uses Face ID to unlock your vault."
+        }
+      ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "NeuroKey uses Face ID to unlock your vault."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "NeuroKey uses the camera to scan the QR code shown by NeuroKey Desktop.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
+      ],
       [
         "expo-splash-screen",
         {
@@ -52,7 +80,8 @@
             "enableShrinkResourcesInReleaseBuilds": true
           }
         }
-      ]
+      ],
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,

@@ -2,7 +2,6 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as LocalAuthentication from "expo-local-authentication";
 import { useRouter } from "expo-router";
-import * as Updates from "expo-updates";
 import React, { useEffect, useState } from "react";
 import {
   ScrollView,
@@ -25,7 +24,7 @@ import { Colors } from "../../src/theme";
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const { getVaultKey } = useVault();
+  const { getVaultKey, lock } = useVault();
   const scheme = useColorScheme();
   const theme = Colors[scheme === "dark" ? "dark" : "light"];
   const insets = useSafeAreaInsets();
@@ -124,7 +123,8 @@ export default function SettingsScreen() {
           closeAlert();
           await wipeVaultSecrets(); // email, salt, KDF params, verifier, biometric key
           await AsyncStorage.clear();
-          Updates.reloadAsync();
+          lock();
+          router.replace("/auth");
         },
       },
     ]);
@@ -216,18 +216,6 @@ export default function SettingsScreen() {
             label="Sync with Desktop"
             onPress={() => router.push("/sync")}
           />
-          <SettingRow
-            icon="cloud-upload-outline"
-            color="#007AFF"
-            label="Backup Vault"
-            onPress={() => showAlert("Backup", "Coming soon!", "info")}
-          />
-          <SettingRow
-            icon="download-outline"
-            color="#5856D6"
-            label="Import Passwords"
-            onPress={() => showAlert("Import", "Coming soon!", "info")}
-          />
         </View>
 
         {/* SECTION 3: ABOUT */}
@@ -246,12 +234,6 @@ export default function SettingsScreen() {
             color="#AF52DE"
             label="Developer"
             onPress={() => router.push("/about")}
-          />
-          <SettingRow
-            icon="star-outline"
-            color="#FFD60A"
-            label="Rate App"
-            onPress={() => showAlert("Thanks!", "You are awesome!", "success")}
           />
         </View>
 

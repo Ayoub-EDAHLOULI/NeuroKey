@@ -180,7 +180,10 @@ export default function DetailScreen() {
         </TouchableOpacity>
         <TouchableOpacity
           onPress={() =>
-            router.push({ pathname: "/edit", params: { ...item } })
+            router.push({
+              pathname: "/edit",
+              params: { ...item, isDeleted: undefined },
+            })
           }
         >
           <Text
