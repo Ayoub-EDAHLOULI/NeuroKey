@@ -7,7 +7,7 @@ import {
 import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as SystemUI from "expo-system-ui";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { AppState, AppStateStatus, useColorScheme } from "react-native";
 import "react-native-get-random-values";
 import "react-native-reanimated";
@@ -27,13 +27,24 @@ export default function RootLayout() {
   }, [colorScheme, theme.background]);
 
   // 2. SECURITY: AUTO-LOCK LISTENER
+  // Refs keep one subscription alive and always read the current route.
+  const segmentsRef = useRef(segments);
+  segmentsRef.current = segments;
+  const appStateRef = useRef(AppState.currentState);
+
   useEffect(() => {
     const subscription = AppState.addEventListener(
       "change",
       async (nextAppState: AppStateStatus) => {
-        if (nextAppState === "active") {
+        const previousState = appStateRef.current;
+        appStateRef.current = nextAppState;
+
+        // Only lock after a real trip to the background. System prompts
+        // (Face ID, Control Center) only make the app "inactive" on iOS;
+        // locking on those caused an endless Face ID loop.
+        if (nextAppState === "active" && previousState === "background") {
           // Check if user is already on Auth screen (Don't lock if already locked)
-          const inAuthGroup = segments[0] === "auth";
+          const inAuthGroup = segmentsRef.current[0] === "auth";
           if (inAuthGroup) return;
 
           const autoLockPref = await AsyncStorage.getItem("auto_lock");
@@ -52,7 +63,7 @@ export default function RootLayout() {
     return () => {
       subscription.remove();
     };
-  }, [segments, router]);
+  }, [router]);
 
   return (
     <VaultProvider>

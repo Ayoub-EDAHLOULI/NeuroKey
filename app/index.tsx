@@ -1,17 +1,7 @@
-import { StatusBar } from "expo-status-bar";
-import React from "react";
-import { useColorScheme } from "react-native";
-import { SafeAreaProvider } from "react-native-safe-area-context";
-import AuthScreen from "./auth";
+import { Redirect } from "expo-router";
 
-export default function App() {
-  const scheme = useColorScheme(); // 'dark' or 'light'
-
-  return (
-    <SafeAreaProvider>
-      {/* Updates the top status bar (battery, time) color automatically */}
-      <StatusBar style={scheme === "dark" ? "light" : "dark"} />
-      <AuthScreen />
-    </SafeAreaProvider>
-  );
+// The lock screen lives at /auth only, so the auto-lock listener can tell
+// when the user is already on it.
+export default function Index() {
+  return <Redirect href="/auth" />;
 }
