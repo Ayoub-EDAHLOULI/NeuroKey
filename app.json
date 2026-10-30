@@ -11,7 +11,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.ayoub.neurokey",
+      "bundleIdentifier": "app.neurokey.mobile",
       "buildNumber": "1",
       "config": {
         "usesNonExemptEncryption": false
